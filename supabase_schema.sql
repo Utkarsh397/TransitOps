@@ -147,6 +147,10 @@ create policy "create_trips" on trips
 create policy "update_trips" on trips
   for update using (exists (select 1 from profiles p where p.id = auth.uid() and p.role in ('driver','fleet_manager')));
 
+-- Prevent clients from directly updating the status column (force use of RPCs)
+revoke update (status) on vehicles from authenticated, anon;
+revoke update (status) on drivers from authenticated, anon;
+
 
 -- ====================================================================================
 -- SECTION 7: RPC FUNCTIONS
@@ -209,13 +213,20 @@ $$ language plpgsql security definer;
 -- Open a maintenance record
 create or replace function open_maintenance(p_vehicle_id uuid, p_description text, p_receipt_url text default null, p_receipt_public_id text default null)
 returns uuid as $$
-declare v_id uuid;
+declare
+  v_id uuid;
+  v_vehicle vehicles%rowtype;
 begin
+  select * into v_vehicle from vehicles where id = p_vehicle_id for update;
+  if v_vehicle.status = 'RETIRED' then
+    raise exception 'VEHICLE_RETIRED';
+  end if;
+
   insert into maintenance_logs (vehicle_id, description, receipt_url, receipt_public_id)
   values (p_vehicle_id, p_description, p_receipt_url, p_receipt_public_id)
   returning id into v_id;
 
-  update vehicles set status='IN_SHOP' where id = p_vehicle_id and status != 'RETIRED';
+  update vehicles set status='IN_SHOP' where id = p_vehicle_id;
   return v_id;
 end;
 $$ language plpgsql security definer;
@@ -223,14 +234,19 @@ $$ language plpgsql security definer;
 -- Close a maintenance record
 create or replace function close_maintenance(p_log_id uuid, p_cost numeric)
 returns void as $$
-declare v_vehicle_id uuid;
+declare
+  v_vehicle_id uuid;
+  v_vehicle vehicles%rowtype;
 begin
-  update maintenance_logs set status='CLOSED', cost=p_cost, closed_at=now()
-  where id = p_log_id
-  returning vehicle_id into v_vehicle_id;
+  select vehicle_id into v_vehicle_id from maintenance_logs where id = p_log_id for update;
+  select * into v_vehicle from vehicles where id = v_vehicle_id for update;
 
-  update vehicles set status='AVAILABLE'
-  where id = v_vehicle_id and status != 'RETIRED';
+  update maintenance_logs set status='CLOSED', cost=p_cost, closed_at=now()
+  where id = p_log_id;
+
+  if v_vehicle.status != 'RETIRED' then
+    update vehicles set status='AVAILABLE' where id = v_vehicle_id;
+  end if;
 end;
 $$ language plpgsql security definer;
 
