@@ -5,8 +5,17 @@ import { z } from 'zod'
 import { supabase } from '../lib/supabaseClient'
 import { useAuth } from '../contexts/AuthContext'
 import ImageUpload from '../components/ImageUpload'
-import { Plus, X, Wrench, CheckCircle, Info, ArrowUp, ArrowDown } from 'lucide-react'
+import { Plus, Wrench, CheckCircle, Info, ArrowUp, ArrowDown } from 'lucide-react'
 import { useSortableData } from '../hooks/useSortableData'
+
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { Badge } from '@/components/ui/badge'
+import { Card, CardContent } from '@/components/ui/card'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogTrigger } from '@/components/ui/dialog'
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 
 const openMaintenanceSchema = z.object({
   vehicle_id: z.string().min(1, 'Vehicle is required'),
@@ -55,7 +64,7 @@ export default function Maintenance() {
         .select(`*, vehicles ( registration_number )`)
         .order('opened_at', { ascending: false })
       
-      if (filterStatus) {
+      if (filterStatus && filterStatus !== 'ALL') {
         query = query.eq('status', filterStatus)
       }
 
@@ -133,15 +142,14 @@ export default function Maintenance() {
     }
   }
 
-  const getStatusColor = (status: string) => {
-    return status === 'OPEN' ? 'bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-400' : 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300'
+  const getStatusVariant = (status: string) => {
+    return status === 'OPEN' ? 'destructive' : 'secondary'
   }
 
   const renderSortableHeader = (label: string, key: string) => {
     return (
-      <th 
-        scope="col" 
-        className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+      <TableHead 
+        className="cursor-pointer hover:bg-muted/50 transition-colors"
         onClick={() => requestSort(key)}
       >
         <div className="flex items-center gap-1">
@@ -150,156 +158,73 @@ export default function Maintenance() {
             sortConfig.direction === 'asc' ? <ArrowUp className="w-3 h-3" /> : <ArrowDown className="w-3 h-3" />
           )}
         </div>
-      </th>
+      </TableHead>
     )
   }
 
   return (
     <div className="p-6 max-w-7xl mx-auto">
       {banner && (
-        <div className="mb-4 bg-indigo-50 dark:bg-indigo-900/30 border border-indigo-200 dark:border-indigo-800 rounded-lg p-4 flex items-start gap-3 transition-colors">
-          <Info className="w-5 h-5 text-indigo-600 dark:text-indigo-400 flex-shrink-0 mt-0.5" />
-          <p className="text-sm font-medium text-indigo-800 dark:text-indigo-300">{banner.message}</p>
+        <div className="mb-4 bg-primary/10 border border-primary/20 rounded-lg p-4 flex items-start gap-3 transition-colors">
+          <Info className="w-5 h-5 text-primary flex-shrink-0 mt-0.5" />
+          <p className="text-sm font-medium text-primary">{banner.message}</p>
         </div>
       )}
 
       <div className="flex justify-between items-center mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Maintenance</h1>
-          <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Track vehicle repairs and shop time</p>
+          <h1 className="text-2xl font-bold tracking-tight">Maintenance</h1>
+          <p className="text-sm text-muted-foreground mt-1">Track vehicle repairs and shop time</p>
         </div>
         {role === 'fleet_manager' && (
-          <button
-            onClick={() => setShowOpenModal(true)}
-            className="flex items-center gap-2 bg-indigo-600 text-white px-4 py-2 rounded-md hover:bg-indigo-700 transition-colors shadow-sm"
-          >
-            <Plus className="w-4 h-4" />
-            Open Record
-          </button>
-        )}
-      </div>
-
-      <div className="bg-white dark:bg-gray-800 p-4 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 mb-6 flex flex-wrap gap-4 items-end transition-colors">
-        <div>
-          <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1 uppercase tracking-wider">Status</label>
-          <select 
-            value={filterStatus} 
-            onChange={(e) => setFilterStatus(e.target.value)}
-            className="block w-40 pl-3 pr-10 py-2 text-sm bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 rounded-md dark:text-white"
-          >
-            <option value="">All Records</option>
-            <option value="OPEN">Open</option>
-            <option value="CLOSED">Closed</option>
-          </select>
-        </div>
-      </div>
-
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow border border-gray-200 dark:border-gray-700 overflow-hidden transition-colors">
-        <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
-            <thead className="bg-gray-50 dark:bg-gray-900/50">
-              <tr>
-                {renderSortableHeader('Vehicle', 'vehicle_id')}
-                {renderSortableHeader('Description', 'description')}
-                {renderSortableHeader('Cost', 'cost')}
-                {renderSortableHeader('Status', 'status')}
-                {renderSortableHeader('Opened At', 'opened_at')}
-                <th scope="col" className="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
-              {loading ? (
-                <tr><td colSpan={6} className="px-6 py-8 text-center text-gray-500 dark:text-gray-400">Loading records...</td></tr>
-              ) : sortedLogs.length === 0 ? (
-                <tr><td colSpan={6} className="px-6 py-8 text-center text-gray-500 dark:text-gray-400">No maintenance records found.</td></tr>
-              ) : (
-                sortedLogs.map((log) => (
-                  <tr key={log.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-white">
-                      {log.vehicles?.registration_number}
-                    </td>
-                    <td className="px-6 py-4">
-                      <div className="text-sm text-gray-900 dark:text-gray-300 line-clamp-2 max-w-xs">{log.description}</div>
-                      {log.receipt_url && (
-                        <a href={log.receipt_url} target="_blank" rel="noopener noreferrer" className="text-xs text-indigo-600 dark:text-indigo-400 hover:underline mt-1 block">
-                          View Receipt
-                        </a>
-                      )}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-300">
-                      ${log.cost.toLocaleString()}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <span className={`px-2.5 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${getStatusColor(log.status)}`}>
-                        {log.status}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
-                      <div>Opened: {new Date(log.opened_at).toLocaleDateString()}</div>
-                      {log.closed_at && <div>Closed: {new Date(log.closed_at).toLocaleDateString()}</div>}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                      {log.status === 'OPEN' && role === 'fleet_manager' && (
-                        <button 
-                          onClick={() => setShowCloseModal(log.id)} 
-                          className="text-green-600 dark:text-green-400 hover:text-green-900 dark:hover:text-green-300 inline-flex items-center gap-1 bg-green-50 dark:bg-green-900/30 px-2 py-1 rounded-md"
-                        >
-                          <CheckCircle className="w-3 h-3" /> Close
-                        </button>
-                      )}
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-      {showOpenModal && role === 'fleet_manager' && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 overflow-y-auto">
-          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-xl w-full max-w-xl mt-10 mb-10 overflow-hidden flex flex-col max-h-[90vh] transition-colors">
-            <div className="flex justify-between items-center p-6 border-b border-gray-100 dark:border-gray-700">
-              <h2 className="text-xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
-                <Wrench className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
-                Open Maintenance Record
-              </h2>
-              <button onClick={() => setShowOpenModal(false)} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-            
-            <div className="p-6 overflow-y-auto">
+          <Dialog open={showOpenModal} onOpenChange={setShowOpenModal}>
+            <DialogTrigger render={<Button className="gap-2" />}>
+              <Plus className="w-4 h-4" />
+              Open Record
+            </DialogTrigger>
+            <DialogContent className="sm:max-w-xl max-h-[90vh] overflow-y-auto">
+              <DialogHeader>
+                <DialogTitle className="flex items-center gap-2">
+                  <Wrench className="w-5 h-5 text-primary" />
+                  Open Maintenance Record
+                </DialogTitle>
+              </DialogHeader>
+              
               {submitError && (
-                <div className="mb-4 bg-red-50 dark:bg-red-900/30 text-red-600 dark:text-red-400 p-3 rounded-md border border-red-100 dark:border-red-800 text-sm">
+                <div className="bg-destructive/15 text-destructive p-3 rounded-md border border-destructive/20 text-sm">
                   {submitError}
                 </div>
               )}
               
-              <form id="open-maintenance-form" onSubmit={handleSubmit(onOpenMaintenance)} className="space-y-6">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Select Vehicle</label>
-                  <select {...register('vehicle_id')} className="w-full px-3 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md focus:ring-indigo-500 focus:border-indigo-500 dark:text-white">
+              <form id="open-maintenance-form" onSubmit={handleSubmit(onOpenMaintenance)} className="space-y-6 py-4">
+                <div className="space-y-2">
+                  <Label htmlFor="vehicle_id">Select Vehicle</Label>
+                  <select 
+                    id="vehicle_id" 
+                    {...register('vehicle_id')} 
+                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                  >
                     <option value="">Choose a vehicle (excludes retired)</option>
                     {vehicles.map(v => (
                       <option key={v.id} value={v.id}>{v.registration_number} - {v.name_model}</option>
                     ))}
                   </select>
-                  {errors.vehicle_id && <p className="mt-1 text-sm text-red-600 dark:text-red-400">{errors.vehicle_id.message}</p>}
+                  {errors.vehicle_id && <p className="text-sm text-destructive">{errors.vehicle_id.message}</p>}
                 </div>
                 
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Issue Description</label>
+                <div className="space-y-2">
+                  <Label htmlFor="description">Issue Description</Label>
                   <textarea 
+                    id="description"
                     {...register('description')} 
                     rows={3} 
-                    className="w-full px-3 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md focus:ring-indigo-500 focus:border-indigo-500 dark:text-white" 
+                    className="flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50" 
                     placeholder="Describe the maintenance issue or work required..." 
                   />
-                  {errors.description && <p className="mt-1 text-sm text-red-600 dark:text-red-400">{errors.description.message}</p>}
+                  {errors.description && <p className="text-sm text-destructive">{errors.description.message}</p>}
                 </div>
 
-                <div className="pt-2 border-t border-gray-100 dark:border-gray-700">
+                <div className="pt-2">
                   <ImageUpload 
                     folder="transitops/maintenance" 
                     label="Attach Quotation / Preliminary Receipt (Optional)" 
@@ -307,75 +232,128 @@ export default function Maintenance() {
                   />
                 </div>
               </form>
-            </div>
-            
-            <div className="p-6 border-t border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 flex justify-end gap-3 transition-colors">
-              <button 
-                type="button" 
-                onClick={() => setShowOpenModal(false)}
-                className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-md hover:bg-gray-50 dark:hover:bg-gray-700"
-              >
-                Cancel
-              </button>
-              <button 
-                type="submit" 
-                form="open-maintenance-form"
-                disabled={isSubmitting}
-                className="px-4 py-2 text-sm font-medium text-white bg-indigo-600 border border-transparent rounded-md hover:bg-indigo-700 disabled:opacity-50"
-              >
-                {isSubmitting ? 'Opening...' : 'Submit to Shop'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+              
+              <DialogFooter>
+                <Button variant="outline" onClick={() => setShowOpenModal(false)} type="button">
+                  Cancel
+                </Button>
+                <Button type="submit" form="open-maintenance-form" disabled={isSubmitting}>
+                  {isSubmitting ? 'Opening...' : 'Submit to Shop'}
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+        )}
+      </div>
 
-      {showCloseModal && role === 'fleet_manager' && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-xl w-full max-w-sm overflow-hidden flex flex-col transition-colors">
-            <div className="flex justify-between items-center p-4 border-b border-gray-100 dark:border-gray-700">
-              <h2 className="text-lg font-bold text-gray-900 dark:text-white">Close Maintenance</h2>
-              <button onClick={() => setShowCloseModal(null)} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-            
-            <div className="p-4">
-              <form id="close-maintenance-form" onSubmit={handleCloseMaintenance} className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Final Cost ($)</label>
-                  <input 
-                    type="number" 
-                    step="0.01"
-                    required 
-                    value={closeCost} 
-                    onChange={e => setCloseCost(e.target.value ? Number(e.target.value) : '')}
-                    className="w-full px-3 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md focus:ring-indigo-500 focus:border-indigo-500 dark:text-white" 
-                    placeholder="e.g. 250.00"
-                  />
-                </div>
-              </form>
-            </div>
-            
-            <div className="p-4 border-t border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 flex justify-end gap-3 transition-colors">
-              <button 
-                type="button" 
-                onClick={() => setShowCloseModal(null)}
-                className="px-3 py-1.5 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-md hover:bg-gray-50 dark:hover:bg-gray-700"
-              >
-                Cancel
-              </button>
-              <button 
-                type="submit" 
-                form="close-maintenance-form"
-                className="px-3 py-1.5 text-sm font-medium text-white bg-green-600 border border-transparent rounded-md hover:bg-green-700"
-              >
-                Confirm Release
-              </button>
-            </div>
+      <Card className="mb-6">
+        <CardContent className="p-4 flex gap-4 items-end">
+          <div className="space-y-2">
+            <Label className="text-xs uppercase tracking-wider text-muted-foreground">Status</Label>
+            <Select value={filterStatus} onValueChange={(val) => setFilterStatus(val || "")}>
+              <SelectTrigger className="w-40">
+                <SelectValue placeholder="All Records" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="ALL">All Records</SelectItem>
+                <SelectItem value="OPEN">Open</SelectItem>
+                <SelectItem value="CLOSED">Closed</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
-        </div>
-      )}
+        </CardContent>
+      </Card>
+
+      <div className="border rounded-md">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              {renderSortableHeader('Vehicle', 'vehicle_id')}
+              {renderSortableHeader('Description', 'description')}
+              {renderSortableHeader('Cost', 'cost')}
+              {renderSortableHeader('Status', 'status')}
+              {renderSortableHeader('Opened At', 'opened_at')}
+              <TableHead className="text-right">Actions</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {loading ? (
+              <TableRow>
+                <TableCell colSpan={6} className="h-24 text-center text-muted-foreground">Loading records...</TableCell>
+              </TableRow>
+            ) : sortedLogs.length === 0 ? (
+              <TableRow>
+                <TableCell colSpan={6} className="h-24 text-center text-muted-foreground">No maintenance records found.</TableCell>
+              </TableRow>
+            ) : (
+              sortedLogs.map((log) => (
+                <TableRow key={log.id}>
+                  <TableCell className="font-medium">
+                    {log.vehicles?.registration_number}
+                  </TableCell>
+                  <TableCell>
+                    <div className="text-sm line-clamp-2 max-w-xs">{log.description}</div>
+                    {log.receipt_url && (
+                      <a href={log.receipt_url} target="_blank" rel="noopener noreferrer" className="text-xs text-primary hover:underline mt-1 block">
+                        View Receipt
+                      </a>
+                    )}
+                  </TableCell>
+                  <TableCell>
+                    ${log.cost.toLocaleString()}
+                  </TableCell>
+                  <TableCell>
+                    <Badge variant={getStatusVariant(log.status) as any}>
+                      {log.status}
+                    </Badge>
+                  </TableCell>
+                  <TableCell className="text-muted-foreground">
+                    <div>Opened: {new Date(log.opened_at).toLocaleDateString()}</div>
+                    {log.closed_at && <div>Closed: {new Date(log.closed_at).toLocaleDateString()}</div>}
+                  </TableCell>
+                  <TableCell className="text-right">
+                    {log.status === 'OPEN' && role === 'fleet_manager' && (
+                      <Button size="sm" onClick={() => setShowCloseModal(log.id)} className="gap-1 bg-green-600 hover:bg-green-700 text-white">
+                        <CheckCircle className="w-3 h-3" /> Close
+                      </Button>
+                    )}
+                  </TableCell>
+                </TableRow>
+              ))
+            )}
+          </TableBody>
+        </Table>
+      </div>
+
+      <Dialog open={!!showCloseModal} onOpenChange={(open) => !open && setShowCloseModal(null)}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Close Maintenance</DialogTitle>
+          </DialogHeader>
+          <form id="close-maintenance-form" onSubmit={handleCloseMaintenance} className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="close_cost">Final Cost ($)</Label>
+              <Input 
+                id="close_cost"
+                type="number" 
+                step="0.01"
+                required 
+                value={closeCost} 
+                onChange={e => setCloseCost(e.target.value ? Number(e.target.value) : '')}
+                placeholder="e.g. 250.00"
+              />
+            </div>
+          </form>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowCloseModal(null)} type="button">
+              Cancel
+            </Button>
+            <Button type="submit" form="close-maintenance-form" className="bg-green-600 hover:bg-green-700 text-white">
+              Confirm Release
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

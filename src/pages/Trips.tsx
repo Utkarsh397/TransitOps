@@ -4,8 +4,15 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { supabase } from '../lib/supabaseClient'
 import { useAuth } from '../contexts/AuthContext'
-import { Plus, X, Play, CheckCircle, XCircle, ArrowUp, ArrowDown } from 'lucide-react'
+import { Plus, Play, CheckCircle, XCircle, ArrowUp, ArrowDown } from 'lucide-react'
 import { useSortableData } from '../hooks/useSortableData'
+
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { Badge } from '@/components/ui/badge'
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogTrigger } from '@/components/ui/dialog'
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 
 const tripSchema = z.object({
   source: z.string().min(1, 'Source is required'),
@@ -153,21 +160,20 @@ export default function Trips() {
     }
   }
 
-  const getStatusColor = (status: string) => {
+  const getStatusVariant = (status: string) => {
     switch(status) {
-      case 'DRAFT': return 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300'
-      case 'DISPATCHED': return 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400'
-      case 'COMPLETED': return 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400'
-      case 'CANCELLED': return 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400'
-      default: return 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300'
+      case 'DRAFT': return 'secondary'
+      case 'DISPATCHED': return 'default'
+      case 'COMPLETED': return 'default' // maybe customize to green variant
+      case 'CANCELLED': return 'destructive'
+      default: return 'outline'
     }
   }
 
   const renderSortableHeader = (label: string, key: string) => {
     return (
-      <th 
-        scope="col" 
-        className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+      <TableHead 
+        className="cursor-pointer hover:bg-muted/50 transition-colors"
         onClick={() => requestSort(key)}
       >
         <div className="flex items-center gap-1">
@@ -176,7 +182,7 @@ export default function Trips() {
             sortConfig.direction === 'asc' ? <ArrowUp className="w-3 h-3" /> : <ArrowDown className="w-3 h-3" />
           )}
         </div>
-      </th>
+      </TableHead>
     )
   }
 
@@ -184,225 +190,196 @@ export default function Trips() {
     <div className="p-6 max-w-7xl mx-auto">
       <div className="flex justify-between items-center mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Trips</h1>
-          <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Manage trip dispatches and completions</p>
+          <h1 className="text-2xl font-bold tracking-tight">Trips</h1>
+          <p className="text-sm text-muted-foreground mt-1">Manage trip dispatches and completions</p>
         </div>
         {(role === 'fleet_manager' || role === 'driver') && (
-          <button
-            onClick={() => setShowCreateModal(true)}
-            className="flex items-center gap-2 bg-indigo-600 text-white px-4 py-2 rounded-md hover:bg-indigo-700 transition-colors shadow-sm"
-          >
-            <Plus className="w-4 h-4" />
-            Create Trip
-          </button>
-        )}
-      </div>
-
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow border border-gray-200 dark:border-gray-700 overflow-hidden transition-colors">
-        <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
-            <thead className="bg-gray-50 dark:bg-gray-900/50">
-              <tr>
-                {renderSortableHeader('Route', 'source')}
-                {renderSortableHeader('Vehicle & Driver', 'vehicle_id')}
-                {renderSortableHeader('Cargo & Dist.', 'cargo_weight')}
-                {renderSortableHeader('Status', 'status')}
-                <th scope="col" className="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
-              {loading ? (
-                <tr><td colSpan={5} className="px-6 py-8 text-center text-gray-500 dark:text-gray-400">Loading trips...</td></tr>
-              ) : sortedTrips.length === 0 ? (
-                <tr><td colSpan={5} className="px-6 py-8 text-center text-gray-500 dark:text-gray-400">No trips found.</td></tr>
-              ) : (
-                sortedTrips.map((t) => (
-                  <tr key={t.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm font-medium text-gray-900 dark:text-white">{t.source}</div>
-                      <div className="text-sm text-gray-500 dark:text-gray-400">to {t.destination}</div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm font-medium text-gray-900 dark:text-white">{t.vehicles?.registration_number}</div>
-                      <div className="text-sm text-gray-500 dark:text-gray-400">{t.drivers?.name}</div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm text-gray-900 dark:text-white">{t.cargo_weight} kg</div>
-                      <div className="text-sm text-gray-500 dark:text-gray-400">{t.planned_distance} km</div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <span className={`px-2.5 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${getStatusColor(t.status)}`}>
-                        {t.status}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium space-x-2">
-                      {t.status === 'DRAFT' && (
-                        <>
-                          <button onClick={() => handleDispatch(t.id)} className="text-blue-600 dark:text-blue-400 hover:text-blue-900 dark:hover:text-blue-300 inline-flex items-center gap-1 bg-blue-50 dark:bg-blue-900/30 px-2 py-1 rounded-md">
-                            <Play className="w-3 h-3" /> Dispatch
-                          </button>
-                        </>
-                      )}
-                      {t.status === 'DISPATCHED' && (
-                        <>
-                          <button onClick={() => setShowCompleteModal(t.id)} className="text-green-600 dark:text-green-400 hover:text-green-900 dark:hover:text-green-300 inline-flex items-center gap-1 bg-green-50 dark:bg-green-900/30 px-2 py-1 rounded-md">
-                            <CheckCircle className="w-3 h-3" /> Complete
-                          </button>
-                          <button onClick={() => handleCancel(t.id)} className="text-red-600 dark:text-red-400 hover:text-red-900 dark:hover:text-red-300 inline-flex items-center gap-1 bg-red-50 dark:bg-red-900/30 px-2 py-1 rounded-md">
-                            <XCircle className="w-3 h-3" /> Cancel
-                          </button>
-                        </>
-                      )}
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-      {showCreateModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 overflow-y-auto">
-          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-xl w-full max-w-2xl mt-10 mb-10 overflow-hidden flex flex-col transition-colors">
-            <div className="flex justify-between items-center p-6 border-b border-gray-100 dark:border-gray-700">
-              <h2 className="text-xl font-bold text-gray-900 dark:text-white">Create New Trip (Draft)</h2>
-              <button onClick={() => setShowCreateModal(false)} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-            
-            <div className="p-6 overflow-y-auto">
+          <Dialog open={showCreateModal} onOpenChange={setShowCreateModal}>
+            <DialogTrigger render={<Button className="gap-2" />}>
+              <Plus className="w-4 h-4" />
+              New Trip
+            </DialogTrigger>
+            <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
+              <DialogHeader>
+                <DialogTitle>Create New Trip (Draft)</DialogTitle>
+              </DialogHeader>
+              
               {submitError && (
-                <div className="mb-4 bg-red-50 dark:bg-red-900/30 text-red-600 dark:text-red-400 p-3 rounded-md border border-red-100 dark:border-red-800 text-sm">
+                <div className="bg-destructive/15 text-destructive p-3 rounded-md border border-destructive/20 text-sm">
                   {submitError}
                 </div>
               )}
               
-              <form id="create-trip-form" onSubmit={handleSubmit(onCreateTrip)} className="space-y-6">
+              <form id="create-trip-form" onSubmit={handleSubmit(onCreateTrip)} className="space-y-6 py-4">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Source</label>
-                    <input {...register('source')} className="w-full px-3 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md focus:ring-indigo-500 focus:border-indigo-500 dark:text-white" placeholder="e.g. Warehouse A" />
-                    {errors.source && <p className="mt-1 text-sm text-red-600 dark:text-red-400">{errors.source.message}</p>}
+                  <div className="space-y-2">
+                    <Label htmlFor="source">Source</Label>
+                    <Input id="source" {...register('source')} placeholder="e.g. Warehouse A" />
+                    {errors.source && <p className="text-sm text-destructive">{errors.source.message}</p>}
                   </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Destination</label>
-                    <input {...register('destination')} className="w-full px-3 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md focus:ring-indigo-500 focus:border-indigo-500 dark:text-white" placeholder="e.g. Hub B" />
-                    {errors.destination && <p className="mt-1 text-sm text-red-600 dark:text-red-400">{errors.destination.message}</p>}
+                  <div className="space-y-2">
+                    <Label htmlFor="destination">Destination</Label>
+                    <Input id="destination" {...register('destination')} placeholder="e.g. Hub B" />
+                    {errors.destination && <p className="text-sm text-destructive">{errors.destination.message}</p>}
                   </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Vehicle</label>
-                    <select {...register('vehicle_id')} className="w-full px-3 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md focus:ring-indigo-500 focus:border-indigo-500 dark:text-white">
+                  <div className="space-y-2">
+                    <Label htmlFor="vehicle_id">Vehicle</Label>
+                    <select 
+                      id="vehicle_id" 
+                      {...register('vehicle_id')} 
+                      className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                    >
                       <option value="">Select a vehicle</option>
                       {availableVehicles.map(v => (
                         <option key={v.id} value={v.id}>{v.registration_number} ({v.name_model}) - Max {v.max_load_capacity}kg</option>
                       ))}
                     </select>
-                    {errors.vehicle_id && <p className="mt-1 text-sm text-red-600 dark:text-red-400">{errors.vehicle_id.message}</p>}
+                    {errors.vehicle_id && <p className="text-sm text-destructive">{errors.vehicle_id.message}</p>}
                   </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Driver</label>
-                    <select {...register('driver_id')} className="w-full px-3 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md focus:ring-indigo-500 focus:border-indigo-500 dark:text-white">
+                  <div className="space-y-2">
+                    <Label htmlFor="driver_id">Driver</Label>
+                    <select 
+                      id="driver_id" 
+                      {...register('driver_id')} 
+                      className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                    >
                       <option value="">Select a driver</option>
                       {availableDrivers.map(d => (
                         <option key={d.id} value={d.id}>{d.name} ({d.license_number})</option>
                       ))}
                     </select>
-                    {errors.driver_id && <p className="mt-1 text-sm text-red-600 dark:text-red-400">{errors.driver_id.message}</p>}
+                    {errors.driver_id && <p className="text-sm text-destructive">{errors.driver_id.message}</p>}
                   </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Cargo Weight (kg)</label>
-                    <input type="number" {...register('cargo_weight', { valueAsNumber: true })} className="w-full px-3 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md focus:ring-indigo-500 focus:border-indigo-500 dark:text-white" />
-                    {errors.cargo_weight && <p className="mt-1 text-sm text-red-600 dark:text-red-400">{errors.cargo_weight.message}</p>}
+                  <div className="space-y-2">
+                    <Label htmlFor="cargo_weight">Cargo Weight (kg)</Label>
+                    <Input id="cargo_weight" type="number" {...register('cargo_weight', { valueAsNumber: true })} />
+                    {errors.cargo_weight && <p className="text-sm text-destructive">{errors.cargo_weight.message}</p>}
                     {isCargoOverweight && (
-                      <p className="mt-1 text-sm text-red-600 dark:text-red-400 font-medium">Warning: Exceeds vehicle capacity of {selectedVehicle?.max_load_capacity}kg</p>
+                      <p className="text-sm text-destructive font-medium">Warning: Exceeds vehicle capacity of {selectedVehicle?.max_load_capacity}kg</p>
                     )}
                   </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Planned Distance (km)</label>
-                    <input type="number" {...register('planned_distance', { valueAsNumber: true })} className="w-full px-3 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md focus:ring-indigo-500 focus:border-indigo-500 dark:text-white" />
-                    {errors.planned_distance && <p className="mt-1 text-sm text-red-600 dark:text-red-400">{errors.planned_distance.message}</p>}
+                  <div className="space-y-2">
+                    <Label htmlFor="planned_distance">Planned Distance (km)</Label>
+                    <Input id="planned_distance" type="number" {...register('planned_distance', { valueAsNumber: true })} />
+                    {errors.planned_distance && <p className="text-sm text-destructive">{errors.planned_distance.message}</p>}
                   </div>
                 </div>
               </form>
-            </div>
-            
-            <div className="p-6 border-t border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 flex justify-end gap-3 transition-colors">
-              <button 
-                type="button" 
-                onClick={() => setShowCreateModal(false)}
-                className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-md hover:bg-gray-50 dark:hover:bg-gray-700"
-              >
-                Cancel
-              </button>
-              <button 
-                type="submit" 
-                form="create-trip-form"
-                disabled={isSubmitting || !!isCargoOverweight}
-                className="px-4 py-2 text-sm font-medium text-white bg-indigo-600 border border-transparent rounded-md hover:bg-indigo-700 disabled:opacity-50"
-              >
-                {isSubmitting ? 'Saving...' : 'Create Trip Draft'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+              
+              <DialogFooter>
+                <Button variant="outline" onClick={() => setShowCreateModal(false)} type="button">
+                  Cancel
+                </Button>
+                <Button type="submit" form="create-trip-form" disabled={isSubmitting || !!isCargoOverweight}>
+                  {isSubmitting ? 'Saving...' : 'Create Trip Draft'}
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+        )}
+      </div>
 
-      {showCompleteModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-xl w-full max-w-sm overflow-hidden flex flex-col transition-colors">
-            <div className="flex justify-between items-center p-4 border-b border-gray-100 dark:border-gray-700">
-              <h2 className="text-lg font-bold text-gray-900 dark:text-white">Complete Trip</h2>
-              <button onClick={() => setShowCompleteModal(null)} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">
-                <X className="w-5 h-5" />
-              </button>
+      <div className="border rounded-md">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              {renderSortableHeader('Route', 'source')}
+              {renderSortableHeader('Vehicle & Driver', 'vehicle_id')}
+              {renderSortableHeader('Cargo & Dist.', 'cargo_weight')}
+              {renderSortableHeader('Status', 'status')}
+              <TableHead className="text-right">Actions</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {loading ? (
+              <TableRow>
+                <TableCell colSpan={5} className="h-24 text-center text-muted-foreground">Loading trips...</TableCell>
+              </TableRow>
+            ) : sortedTrips.length === 0 ? (
+              <TableRow>
+                <TableCell colSpan={5} className="h-24 text-center text-muted-foreground">No trips found.</TableCell>
+              </TableRow>
+            ) : (
+              sortedTrips.map((t) => (
+                <TableRow key={t.id}>
+                  <TableCell>
+                    <div className="font-medium">{t.source}</div>
+                    <div className="text-sm text-muted-foreground">to {t.destination}</div>
+                  </TableCell>
+                  <TableCell>
+                    <div className="font-medium">{t.vehicles?.registration_number}</div>
+                    <div className="text-sm text-muted-foreground">{t.drivers?.name}</div>
+                  </TableCell>
+                  <TableCell>
+                    <div>{t.cargo_weight} kg</div>
+                    <div className="text-sm text-muted-foreground">{t.planned_distance} km</div>
+                  </TableCell>
+                  <TableCell>
+                    <Badge variant={getStatusVariant(t.status) as any}>
+                      {t.status}
+                    </Badge>
+                  </TableCell>
+                  <TableCell className="text-right space-x-2">
+                    {t.status === 'DRAFT' && (
+                      <Button variant="secondary" size="sm" onClick={() => handleDispatch(t.id)} className="gap-1">
+                        <Play className="w-3 h-3" /> Dispatch
+                      </Button>
+                    )}
+                    {t.status === 'DISPATCHED' && (
+                      <>
+                        <Button variant="default" size="sm" onClick={() => setShowCompleteModal(t.id)} className="gap-1 bg-green-600 hover:bg-green-700 text-white">
+                          <CheckCircle className="w-3 h-3" /> Complete
+                        </Button>
+                        <Button variant="destructive" size="sm" onClick={() => handleCancel(t.id)} className="gap-1">
+                          <XCircle className="w-3 h-3" /> Cancel
+                        </Button>
+                      </>
+                    )}
+                  </TableCell>
+                </TableRow>
+              ))
+            )}
+          </TableBody>
+        </Table>
+      </div>
+
+      <Dialog open={!!showCompleteModal} onOpenChange={(open) => !open && setShowCompleteModal(null)}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Complete Trip</DialogTitle>
+          </DialogHeader>
+          <form id="complete-trip-form" onSubmit={handleComplete} className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="final_odometer">Final Odometer</Label>
+              <Input 
+                id="final_odometer"
+                type="number" 
+                required 
+                value={finalOdometer} 
+                onChange={e => setFinalOdometer(e.target.value ? Number(e.target.value) : '')}
+              />
             </div>
-            
-            <div className="p-4">
-              <form id="complete-trip-form" onSubmit={handleComplete} className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Final Odometer</label>
-                  <input 
-                    type="number" 
-                    required 
-                    value={finalOdometer} 
-                    onChange={e => setFinalOdometer(e.target.value ? Number(e.target.value) : '')}
-                    className="w-full px-3 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md focus:ring-indigo-500 focus:border-indigo-500 dark:text-white" 
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Fuel Consumed (Liters)</label>
-                  <input 
-                    type="number" 
-                    required 
-                    value={fuelConsumed}
-                    onChange={e => setFuelConsumed(e.target.value ? Number(e.target.value) : '')}
-                    className="w-full px-3 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md focus:ring-indigo-500 focus:border-indigo-500 dark:text-white" 
-                  />
-                </div>
-              </form>
+            <div className="space-y-2">
+              <Label htmlFor="fuel_consumed">Fuel Consumed (Liters)</Label>
+              <Input 
+                id="fuel_consumed"
+                type="number" 
+                required 
+                value={fuelConsumed}
+                onChange={e => setFuelConsumed(e.target.value ? Number(e.target.value) : '')}
+              />
             </div>
-            
-            <div className="p-4 border-t border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 flex justify-end gap-3 transition-colors">
-              <button 
-                type="button" 
-                onClick={() => setShowCompleteModal(null)}
-                className="px-3 py-1.5 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-md hover:bg-gray-50 dark:hover:bg-gray-700"
-              >
-                Cancel
-              </button>
-              <button 
-                type="submit" 
-                form="complete-trip-form"
-                className="px-3 py-1.5 text-sm font-medium text-white bg-green-600 border border-transparent rounded-md hover:bg-green-700"
-              >
-                Mark Completed
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+          </form>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowCompleteModal(null)} type="button">
+              Cancel
+            </Button>
+            <Button type="submit" form="complete-trip-form" className="bg-green-600 hover:bg-green-700 text-white">
+              Mark Completed
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

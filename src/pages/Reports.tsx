@@ -6,6 +6,11 @@ import { Download, ArrowUp, ArrowDown } from 'lucide-react'
 import Papa from 'papaparse'
 import { useSortableData } from '../hooks/useSortableData'
 
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
+
 export default function Reports() {
   const [vehicles, setVehicles] = useState<any[]>([])
   const [trips, setTrips] = useState<any[]>([])
@@ -119,9 +124,8 @@ export default function Reports() {
   }
 
   const renderSortableHeader = (label: string, key: string) => (
-    <th 
-      scope="col" 
-      className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+    <TableHead 
+      className="cursor-pointer hover:bg-muted/50 transition-colors"
       onClick={() => requestSort(key)}
     >
       <div className="flex items-center gap-1">
@@ -130,108 +134,118 @@ export default function Reports() {
           sortConfig.direction === 'asc' ? <ArrowUp className="w-3 h-3" /> : <ArrowDown className="w-3 h-3" />
         )}
       </div>
-    </th>
+    </TableHead>
   )
 
   return (
     <div className="p-6 max-w-7xl mx-auto space-y-8">
       <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Reports & Analytics</h1>
-          <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Deep dive into fleet performance and costs</p>
+          <h1 className="text-2xl font-bold tracking-tight">Reports & Analytics</h1>
+          <p className="text-sm text-muted-foreground mt-1">Deep dive into fleet performance and costs</p>
         </div>
       </div>
 
       {loading ? (
-        <div className="flex justify-center py-12 text-gray-500 dark:text-gray-400">Loading Analytics...</div>
+        <div className="flex justify-center py-12 text-muted-foreground">Loading Analytics...</div>
       ) : (
         <>
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 transition-colors">
-              <h2 className="text-lg font-bold text-gray-900 dark:text-white mb-4">Fuel Efficiency (km/L)</h2>
-              <div className="h-80 w-full">
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={reportData} margin={{ top: 10, right: 10, left: -20, bottom: 20 }}>
-                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#374151" />
-                    <XAxis dataKey="registration" tick={{fontSize: 12, fill: '#9ca3af'}} angle={-45} textAnchor="end" />
-                    <YAxis tick={{fontSize: 12, fill: '#9ca3af'}} />
-                    <Tooltip cursor={{fill: 'rgba(107, 114, 128, 0.2)'}} contentStyle={{ backgroundColor: '#1f2937', borderColor: '#374151', color: '#fff' }} />
-                    <Bar dataKey="fuel_efficiency" name="Efficiency (km/L)" fill="#4f46e5" radius={[4, 4, 0, 0]} />
-                  </BarChart>
-                </ResponsiveContainer>
-              </div>
-            </div>
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-lg">Fuel Efficiency (km/L)</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="h-80 w-full">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={reportData} margin={{ top: 10, right: 10, left: -20, bottom: 20 }}>
+                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#374151" />
+                      <XAxis dataKey="registration" tick={{fontSize: 12, fill: '#9ca3af'}} angle={-45} textAnchor="end" />
+                      <YAxis tick={{fontSize: 12, fill: '#9ca3af'}} />
+                      <Tooltip cursor={{fill: 'rgba(107, 114, 128, 0.2)'}} contentStyle={{ backgroundColor: '#1f2937', borderColor: '#374151', color: '#fff' }} />
+                      <Bar dataKey="fuel_efficiency" name="Efficiency (km/L)" fill="#4f46e5" radius={[4, 4, 0, 0]} />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+              </CardContent>
+            </Card>
 
-            <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 transition-colors">
-              <h2 className="text-lg font-bold text-gray-900 dark:text-white mb-4">Operational Cost Breakdown ($)</h2>
-              <div className="h-80 w-full">
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={reportData} margin={{ top: 10, right: 10, left: -10, bottom: 20 }}>
-                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#374151" />
-                    <XAxis dataKey="registration" tick={{fontSize: 12, fill: '#9ca3af'}} angle={-45} textAnchor="end" />
-                    <YAxis tick={{fontSize: 12, fill: '#9ca3af'}} />
-                    <Tooltip cursor={{fill: 'rgba(107, 114, 128, 0.2)'}} contentStyle={{ backgroundColor: '#1f2937', borderColor: '#374151', color: '#fff' }} />
-                    <Legend verticalAlign="top" height={36} wrapperStyle={{ color: '#9ca3af' }}/>
-                    <Bar dataKey="cost_fuel" name="Fuel" stackId="a" fill="#3b82f6" />
-                    <Bar dataKey="cost_maintenance" name="Maintenance" stackId="a" fill="#f59e0b" />
-                    <Bar dataKey="cost_expenses" name="Other" stackId="a" fill="#10b981" radius={[4, 4, 0, 0]} />
-                  </BarChart>
-                </ResponsiveContainer>
-              </div>
-            </div>
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-lg">Operational Cost Breakdown ($)</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="h-80 w-full">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={reportData} margin={{ top: 10, right: 10, left: -10, bottom: 20 }}>
+                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#374151" />
+                      <XAxis dataKey="registration" tick={{fontSize: 12, fill: '#9ca3af'}} angle={-45} textAnchor="end" />
+                      <YAxis tick={{fontSize: 12, fill: '#9ca3af'}} />
+                      <Tooltip cursor={{fill: 'rgba(107, 114, 128, 0.2)'}} contentStyle={{ backgroundColor: '#1f2937', borderColor: '#374151', color: '#fff' }} />
+                      <Legend verticalAlign="top" height={36} wrapperStyle={{ color: '#9ca3af' }}/>
+                      <Bar dataKey="cost_fuel" name="Fuel" stackId="a" fill="#3b82f6" />
+                      <Bar dataKey="cost_maintenance" name="Maintenance" stackId="a" fill="#f59e0b" />
+                      <Bar dataKey="cost_expenses" name="Other" stackId="a" fill="#10b981" radius={[4, 4, 0, 0]} />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+              </CardContent>
+            </Card>
           </div>
 
-          <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 transition-colors">
-            <div className="flex justify-between items-center mb-4">
-              <h2 className="text-lg font-bold text-gray-900 dark:text-white">Vehicle ROI Analysis</h2>
-              <button 
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between pb-4">
+              <CardTitle className="text-lg">Vehicle ROI Analysis</CardTitle>
+              <Button 
+                variant="outline"
                 onClick={exportCsv}
-                className="flex items-center gap-2 bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300 border border-gray-300 dark:border-gray-600 px-3 py-1.5 rounded-md hover:bg-gray-50 dark:hover:bg-gray-600 text-sm font-medium transition-colors"
+                className="gap-2"
               >
                 <Download className="w-4 h-4" /> Export CSV
-              </button>
-            </div>
-            
-            <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
-                <thead className="bg-gray-50 dark:bg-gray-900/50">
-                  <tr>
-                    {renderSortableHeader('Registration', 'registration')}
-                    {renderSortableHeader('Acquisition Cost', 'acquisition_cost')}
-                    {renderSortableHeader('Total Ops Cost', 'total_cost')}
-                    {renderSortableHeader('Assumed Revenue ($)', 'revenue')}
-                    {renderSortableHeader('ROI %', 'roi')}
-                  </tr>
-                </thead>
-                <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
-                  {sortedReportData.map((row) => (
-                    <tr key={row.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
-                      <td className="px-4 py-3 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-white">{row.registration}</td>
-                      <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">${row.acquisition_cost.toLocaleString()}</td>
-                      <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">${row.total_cost.toLocaleString()}</td>
-                      <td className="px-4 py-3 whitespace-nowrap text-sm">
-                        <input 
-                          type="number"
-                          className="w-24 px-2 py-1 text-sm bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded focus:ring-indigo-500 focus:border-indigo-500 dark:text-white"
-                          value={revenueMap[row.id] || ''}
-                          onChange={(e) => handleRevenueChange(row.id, e.target.value)}
-                          placeholder="0"
-                        />
-                      </td>
-                      <td className="px-4 py-3 whitespace-nowrap text-sm">
-                        <span className={`font-semibold ${row.roi > 0 ? 'text-green-600 dark:text-green-400' : row.roi < 0 ? 'text-red-600 dark:text-red-400' : 'text-gray-500 dark:text-gray-400'}`}>
-                          {row.roi > 0 ? '+' : ''}{row.roi}%
-                        </span>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-            <p className="text-xs text-gray-400 dark:text-gray-500 mt-4">
-              * ROI = (Revenue - Operational Cost) / Acquisition Cost. Operational Cost includes Fuel, Maintenance, and Other Expenses.
-            </p>
-          </div>
+              </Button>
+            </CardHeader>
+            <CardContent>
+              <div className="border rounded-md">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      {renderSortableHeader('Registration', 'registration')}
+                      {renderSortableHeader('Acquisition Cost', 'acquisition_cost')}
+                      {renderSortableHeader('Total Ops Cost', 'total_cost')}
+                      {renderSortableHeader('Assumed Revenue ($)', 'revenue')}
+                      {renderSortableHeader('ROI %', 'roi')}
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {sortedReportData.map((row) => (
+                      <TableRow key={row.id}>
+                        <TableCell className="font-medium">{row.registration}</TableCell>
+                        <TableCell className="text-muted-foreground">${row.acquisition_cost.toLocaleString()}</TableCell>
+                        <TableCell className="text-muted-foreground">${row.total_cost.toLocaleString()}</TableCell>
+                        <TableCell>
+                          <Input 
+                            type="number"
+                            className="w-24 h-8 text-sm"
+                            value={revenueMap[row.id] || ''}
+                            onChange={(e) => handleRevenueChange(row.id, e.target.value)}
+                            placeholder="0"
+                          />
+                        </TableCell>
+                        <TableCell>
+                          <span className={`font-semibold ${row.roi > 0 ? 'text-green-500' : row.roi < 0 ? 'text-destructive' : 'text-muted-foreground'}`}>
+                            {row.roi > 0 ? '+' : ''}{row.roi}%
+                          </span>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+              <p className="text-xs text-muted-foreground mt-4">
+                * ROI = (Revenue - Operational Cost) / Acquisition Cost. Operational Cost includes Fuel, Maintenance, and Other Expenses.
+              </p>
+            </CardContent>
+          </Card>
         </>
       )}
     </div>

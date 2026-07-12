@@ -1,6 +1,11 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabaseClient'
 import { Truck, CheckCircle, Wrench, Activity, Clock, Users, PieChart } from 'lucide-react'
+import { Card, CardContent } from '@/components/ui/card'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { Button } from '@/components/ui/button'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 
 export default function Dashboard() {
   const [kpis, setKpis] = useState<any>(null)
@@ -59,7 +64,7 @@ export default function Dashboard() {
     let vQuery = supabase.from('vehicles').select('id, status, type, region')
     if (applyFilters) {
       if (typeFilter) vQuery = vQuery.eq('type', typeFilter)
-      if (statusFilter) vQuery = vQuery.eq('status', statusFilter)
+      if (statusFilter && statusFilter !== 'ALL') vQuery = vQuery.eq('status', statusFilter)
       if (regionFilter) vQuery = vQuery.eq('region', regionFilter)
     }
     
@@ -101,73 +106,79 @@ export default function Dashboard() {
   }
 
   const KpiCard = ({ title, value, icon: Icon, colorClass }: { title: string, value: string | number, icon: any, colorClass: string }) => (
-    <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 flex items-center gap-4 transition-colors">
-      <div className={`p-3 rounded-full ${colorClass}`}>
-        <Icon className="w-6 h-6" />
-      </div>
-      <div>
-        <p className="text-sm font-medium text-gray-500 dark:text-gray-400">{title}</p>
-        <p className="text-2xl font-bold text-gray-900 dark:text-white">{value}</p>
-      </div>
-    </div>
+    <Card>
+      <CardContent className="p-6 flex items-center gap-4">
+        <div className={`p-3 rounded-full ${colorClass}`}>
+          <Icon className="w-6 h-6" />
+        </div>
+        <div>
+          <p className="text-sm font-medium text-muted-foreground">{title}</p>
+          <p className="text-2xl font-bold">{value}</p>
+        </div>
+      </CardContent>
+    </Card>
   )
 
   return (
     <div className="p-6 max-w-7xl mx-auto space-y-6">
       <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Dashboard</h1>
-          <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Real-time fleet overview</p>
+          <h1 className="text-2xl font-bold tracking-tight">Dashboard</h1>
+          <p className="text-sm text-muted-foreground mt-1">Real-time fleet overview</p>
         </div>
       </div>
 
       {/* Filters */}
-      <div className="bg-white dark:bg-gray-800 p-4 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 flex flex-wrap gap-4 items-end transition-colors">
-        <div>
-          <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1 uppercase tracking-wider">Vehicle Type</label>
-          <input 
-            type="text" 
-            placeholder="e.g. Van, Truck"
-            value={typeFilter}
-            onChange={(e) => setTypeFilter(e.target.value)}
-            className="block w-40 px-3 py-2 text-sm bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md focus:ring-indigo-500 focus:border-indigo-500 dark:text-white"
-          />
-        </div>
-        <div>
-          <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1 uppercase tracking-wider">Status</label>
-          <select 
-            value={statusFilter} 
-            onChange={(e) => setStatusFilter(e.target.value)}
-            className="block w-40 pl-3 pr-10 py-2 text-sm bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 rounded-md dark:text-white"
-          >
-            <option value="">All</option>
-            <option value="AVAILABLE">Available</option>
-            <option value="ON_TRIP">On Trip</option>
-            <option value="IN_SHOP">In Shop</option>
-          </select>
-        </div>
-        <div>
-          <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1 uppercase tracking-wider">Region</label>
-          <input 
-            type="text" 
-            placeholder="e.g. North"
-            value={regionFilter}
-            onChange={(e) => setRegionFilter(e.target.value)}
-            className="block w-40 px-3 py-2 text-sm bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md focus:ring-indigo-500 focus:border-indigo-500 dark:text-white"
-          />
-        </div>
-        {(typeFilter || statusFilter || regionFilter) && (
-          <button 
-            onClick={() => { setTypeFilter(''); setStatusFilter(''); setRegionFilter(''); }}
-            className="text-sm text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 underline px-2 py-2"
-          >
-            Clear Filters
-          </button>
-        )}
-      </div>
+      <Card>
+        <CardContent className="p-4 flex flex-wrap gap-4 items-end">
+          <div className="space-y-2">
+            <Label className="text-xs uppercase tracking-wider text-muted-foreground">Vehicle Type</Label>
+            <Input 
+              type="text" 
+              placeholder="e.g. Van, Truck"
+              value={typeFilter}
+              onChange={(e) => setTypeFilter(e.target.value)}
+              className="w-40"
+            />
+          </div>
+          <div className="space-y-2">
+            <Label className="text-xs uppercase tracking-wider text-muted-foreground">Status</Label>
+            <Select value={statusFilter} onValueChange={(val) => setStatusFilter(val ?? "")}>
+              <SelectTrigger className="w-40">
+                <SelectValue placeholder="All" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="ALL">All</SelectItem>
+                <SelectItem value="AVAILABLE">Available</SelectItem>
+                <SelectItem value="ON_TRIP">On Trip</SelectItem>
+                <SelectItem value="IN_SHOP">In Shop</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-2">
+            <Label className="text-xs uppercase tracking-wider text-muted-foreground">Region</Label>
+            <Input 
+              type="text" 
+              placeholder="e.g. North"
+              value={regionFilter}
+              onChange={(e) => setRegionFilter(e.target.value)}
+              className="w-40"
+            />
+          </div>
+          {(typeFilter || (statusFilter && statusFilter !== 'ALL') || regionFilter) && (
+            <Button 
+              variant="link"
+              onClick={() => { setTypeFilter(''); setStatusFilter('ALL'); setRegionFilter(''); }}
+              className="text-muted-foreground h-10"
+            >
+              Clear Filters
+            </Button>
+          )}
+        </CardContent>
+      </Card>
 
       {loading ? (
-        <div className="flex justify-center py-12 text-gray-500 dark:text-gray-400">Loading KPIs...</div>
+        <div className="flex justify-center py-12 text-muted-foreground">Loading KPIs...</div>
       ) : kpis ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
           <KpiCard 
@@ -204,7 +215,7 @@ export default function Dashboard() {
             title="Pending Trips" 
             value={kpis.pending_trips} 
             icon={Clock} 
-            colorClass="bg-gray-100 text-gray-600 dark:bg-gray-700/50 dark:text-gray-400" 
+            colorClass="bg-secondary text-secondary-foreground" 
           />
           <KpiCard 
             title="Drivers On Duty" 
@@ -214,7 +225,7 @@ export default function Dashboard() {
           />
         </div>
       ) : (
-        <div className="flex justify-center py-12 text-red-500">Failed to load KPIs.</div>
+        <div className="flex justify-center py-12 text-destructive">Failed to load KPIs.</div>
       )}
     </div>
   )

@@ -5,8 +5,16 @@ import { z } from 'zod'
 import { supabase } from '../lib/supabaseClient'
 import { useAuth } from '../contexts/AuthContext'
 import ImageUpload from '../components/ImageUpload'
-import { Plus, X, AlertTriangle, ArrowUp, ArrowDown } from 'lucide-react'
+import { Plus, AlertTriangle, ArrowUp, ArrowDown } from 'lucide-react'
 import { useSortableData } from '../hooks/useSortableData'
+
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { Badge } from '@/components/ui/badge'
+import { Card, CardContent } from '@/components/ui/card'
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogTrigger } from '@/components/ui/dialog'
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 
 const driverSchema = z.object({
   name: z.string().min(1, 'Name is required'),
@@ -90,13 +98,13 @@ export default function Drivers() {
     }
   }
 
-  const getStatusColor = (status: string) => {
+  const getStatusVariant = (status: string) => {
     switch(status) {
-      case 'AVAILABLE': return 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400'
-      case 'ON_TRIP': return 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400'
-      case 'OFF_DUTY': return 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300'
-      case 'SUSPENDED': return 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400'
-      default: return 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300'
+      case 'AVAILABLE': return 'default'
+      case 'ON_TRIP': return 'secondary'
+      case 'OFF_DUTY': return 'outline'
+      case 'SUSPENDED': return 'destructive'
+      default: return 'outline'
     }
   }
 
@@ -106,9 +114,8 @@ export default function Drivers() {
 
   const renderSortableHeader = (label: string, key: string) => {
     return (
-      <th 
-        scope="col" 
-        className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+      <TableHead 
+        className="cursor-pointer hover:bg-muted/50 transition-colors"
         onClick={() => requestSort(key)}
       >
         <div className="flex items-center gap-1">
@@ -117,7 +124,7 @@ export default function Drivers() {
             sortConfig.direction === 'asc' ? <ArrowUp className="w-3 h-3" /> : <ArrowDown className="w-3 h-3" />
           )}
         </div>
-      </th>
+      </TableHead>
     )
   }
 
@@ -125,132 +132,51 @@ export default function Drivers() {
     <div className="p-6 max-w-7xl mx-auto">
       <div className="flex justify-between items-center mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Drivers</h1>
-          <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Manage fleet personnel and licenses</p>
+          <h1 className="text-2xl font-bold tracking-tight">Drivers</h1>
+          <p className="text-sm text-muted-foreground mt-1">Manage fleet personnel and licenses</p>
         </div>
         {role === 'safety_officer' && (
-          <button
-            onClick={() => setShowModal(true)}
-            className="flex items-center gap-2 bg-indigo-600 text-white px-4 py-2 rounded-md hover:bg-indigo-700 transition-colors shadow-sm"
-          >
-            <Plus className="w-4 h-4" />
-            New Driver
-          </button>
-        )}
-      </div>
-
-      <div className="bg-white dark:bg-gray-800 p-4 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 mb-6 flex gap-4 items-center transition-colors">
-        <label className="flex items-center gap-2 cursor-pointer">
-          <input 
-            type="checkbox" 
-            checked={filterExpiringSoon}
-            onChange={(e) => setFilterExpiringSoon(e.target.checked)}
-            className="w-4 h-4 text-indigo-600 rounded border-gray-300 dark:border-gray-600 focus:ring-indigo-500 dark:bg-gray-700"
-          />
-          <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Expiring Soon (Next 30 Days)</span>
-        </label>
-      </div>
-
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow border border-gray-200 dark:border-gray-700 overflow-hidden transition-colors">
-        <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
-            <thead className="bg-gray-50 dark:bg-gray-900/50">
-              <tr>
-                {renderSortableHeader('Driver Details', 'name')}
-                {renderSortableHeader('License Info', 'license_number')}
-                {renderSortableHeader('Expiry', 'license_expiry')}
-                {renderSortableHeader('Safety Score', 'safety_score')}
-                {renderSortableHeader('Status', 'status')}
-              </tr>
-            </thead>
-            <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
-              {loading ? (
-                <tr><td colSpan={5} className="px-6 py-8 text-center text-gray-500 dark:text-gray-400">Loading drivers...</td></tr>
-              ) : sortedDrivers.length === 0 ? (
-                <tr><td colSpan={5} className="px-6 py-8 text-center text-gray-500 dark:text-gray-400">No drivers found.</td></tr>
-              ) : (
-                sortedDrivers.map((d) => {
-                  const expired = isExpired(d.license_expiry)
-                  return (
-                    <tr key={d.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm font-medium text-gray-900 dark:text-white">{d.name}</div>
-                        <div className="text-sm text-gray-500 dark:text-gray-400">{d.contact_number || '-'}</div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm text-gray-900 dark:text-white">{d.license_number}</div>
-                        <div className="text-sm text-gray-500 dark:text-gray-400">Category: {d.license_category}</div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="flex items-center gap-2">
-                          <span className={`text-sm ${expired ? 'text-red-600 dark:text-red-400 font-semibold' : 'text-gray-900 dark:text-gray-300'}`}>
-                            {d.license_expiry}
-                          </span>
-                          {expired && <AlertTriangle className="w-4 h-4 text-red-500" />}
-                        </div>
-                        {expired && <span className="text-xs text-red-600 dark:text-red-400">Expired</span>}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <span className={`text-sm font-medium ${d.safety_score < 70 ? 'text-red-600 dark:text-red-400' : d.safety_score < 90 ? 'text-orange-600 dark:text-orange-400' : 'text-green-600 dark:text-green-400'}`}>
-                          {d.safety_score}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <span className={`px-2.5 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${getStatusColor(d.status)}`}>
-                          {d.status.replace('_', ' ')}
-                        </span>
-                      </td>
-                    </tr>
-                  )
-                })
-              )}
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-      {showModal && role === 'safety_officer' && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 overflow-y-auto">
-          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-xl w-full max-w-2xl mt-10 mb-10 overflow-hidden flex flex-col max-h-[90vh] transition-colors">
-            <div className="flex justify-between items-center p-6 border-b border-gray-100 dark:border-gray-700">
-              <h2 className="text-xl font-bold text-gray-900 dark:text-white">Add New Driver</h2>
-              <button onClick={() => setShowModal(false)} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-            
-            <div className="p-6 overflow-y-auto">
+          <Dialog open={showModal} onOpenChange={setShowModal}>
+            <DialogTrigger render={<Button className="gap-2" />}>
+              <Plus className="w-4 h-4" />
+              Add Driver
+            </DialogTrigger>
+            <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
+              <DialogHeader>
+                <DialogTitle>Add New Driver</DialogTitle>
+              </DialogHeader>
+              
               {submitError && (
-                <div className="mb-4 bg-red-50 dark:bg-red-900/30 text-red-600 dark:text-red-400 p-3 rounded-md border border-red-100 dark:border-red-800 text-sm">
+                <div className="bg-destructive/15 text-destructive p-3 rounded-md border border-destructive/20 text-sm">
                   {submitError}
                 </div>
               )}
               
-              <form id="driver-form" onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+              <form id="driver-form" onSubmit={handleSubmit(onSubmit)} className="space-y-6 py-4">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Full Name</label>
-                    <input {...register('name')} className="w-full px-3 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md focus:ring-indigo-500 focus:border-indigo-500 dark:text-white" placeholder="e.g. John Smith" />
-                    {errors.name && <p className="mt-1 text-sm text-red-600 dark:text-red-400">{errors.name.message}</p>}
+                  <div className="space-y-2">
+                    <Label htmlFor="name">Full Name</Label>
+                    <Input id="name" {...register('name')} placeholder="e.g. John Smith" />
+                    {errors.name && <p className="text-sm text-destructive">{errors.name.message}</p>}
                   </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Contact Number</label>
-                    <input {...register('contact_number')} className="w-full px-3 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md focus:ring-indigo-500 focus:border-indigo-500 dark:text-white" placeholder="e.g. +1 555-0123" />
+                  <div className="space-y-2">
+                    <Label htmlFor="contact_number">Contact Number</Label>
+                    <Input id="contact_number" {...register('contact_number')} placeholder="e.g. +1 555-0123" />
                   </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">License Number</label>
-                    <input {...register('license_number')} className="w-full px-3 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md focus:ring-indigo-500 focus:border-indigo-500 dark:text-white" placeholder="e.g. DL-98765432" />
-                    {errors.license_number && <p className="mt-1 text-sm text-red-600 dark:text-red-400">{errors.license_number.message}</p>}
+                  <div className="space-y-2">
+                    <Label htmlFor="license_number">License Number</Label>
+                    <Input id="license_number" {...register('license_number')} placeholder="e.g. DL-98765432" />
+                    {errors.license_number && <p className="text-sm text-destructive">{errors.license_number.message}</p>}
                   </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">License Category</label>
-                    <input {...register('license_category')} className="w-full px-3 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md focus:ring-indigo-500 focus:border-indigo-500 dark:text-white" placeholder="e.g. CDL-A" />
-                    {errors.license_category && <p className="mt-1 text-sm text-red-600 dark:text-red-400">{errors.license_category.message}</p>}
+                  <div className="space-y-2">
+                    <Label htmlFor="license_category">License Category</Label>
+                    <Input id="license_category" {...register('license_category')} placeholder="e.g. CDL-A" />
+                    {errors.license_category && <p className="text-sm text-destructive">{errors.license_category.message}</p>}
                   </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">License Expiry Date</label>
-                    <input type="date" {...register('license_expiry')} className="w-full px-3 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md focus:ring-indigo-500 focus:border-indigo-500 dark:text-white" />
-                    {errors.license_expiry && <p className="mt-1 text-sm text-red-600 dark:text-red-400">{errors.license_expiry.message}</p>}
+                  <div className="space-y-2">
+                    <Label htmlFor="license_expiry">License Expiry Date</Label>
+                    <Input id="license_expiry" type="date" {...register('license_expiry')} />
+                    {errors.license_expiry && <p className="text-sm text-destructive">{errors.license_expiry.message}</p>}
                   </div>
                 </div>
 
@@ -262,28 +188,93 @@ export default function Drivers() {
                   />
                 </div>
               </form>
-            </div>
-            
-            <div className="p-6 border-t border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 flex justify-end gap-3 transition-colors">
-              <button 
-                type="button" 
-                onClick={() => setShowModal(false)}
-                className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-md hover:bg-gray-50 dark:hover:bg-gray-700"
-              >
-                Cancel
-              </button>
-              <button 
-                type="submit" 
-                form="driver-form"
-                disabled={isSubmitting}
-                className="px-4 py-2 text-sm font-medium text-white bg-indigo-600 border border-transparent rounded-md hover:bg-indigo-700 disabled:opacity-50"
-              >
-                {isSubmitting ? 'Saving...' : 'Save Driver'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+              
+              <DialogFooter>
+                <Button variant="outline" onClick={() => setShowModal(false)} type="button">
+                  Cancel
+                </Button>
+                <Button type="submit" form="driver-form" disabled={isSubmitting}>
+                  {isSubmitting ? 'Saving...' : 'Save Driver'}
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+        )}
+      </div>
+
+      <Card className="mb-6">
+        <CardContent className="p-4 flex gap-4 items-center">
+          <label className="flex items-center gap-2 cursor-pointer">
+            <input 
+              type="checkbox" 
+              checked={filterExpiringSoon}
+              onChange={(e) => setFilterExpiringSoon(e.target.checked)}
+              className="w-4 h-4 text-primary rounded border-input focus:ring-primary"
+            />
+            <span className="text-sm font-medium">Expiring Soon (Next 30 Days)</span>
+          </label>
+        </CardContent>
+      </Card>
+
+      <div className="border rounded-md">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              {renderSortableHeader('Driver Details', 'name')}
+              {renderSortableHeader('License Info', 'license_number')}
+              {renderSortableHeader('Expiry', 'license_expiry')}
+              {renderSortableHeader('Safety Score', 'safety_score')}
+              {renderSortableHeader('Status', 'status')}
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {loading ? (
+              <TableRow>
+                <TableCell colSpan={5} className="h-24 text-center text-muted-foreground">Loading drivers...</TableCell>
+              </TableRow>
+            ) : sortedDrivers.length === 0 ? (
+              <TableRow>
+                <TableCell colSpan={5} className="h-24 text-center text-muted-foreground">No drivers found.</TableCell>
+              </TableRow>
+            ) : (
+              sortedDrivers.map((d) => {
+                const expired = isExpired(d.license_expiry)
+                return (
+                  <TableRow key={d.id}>
+                    <TableCell>
+                      <div className="font-medium">{d.name}</div>
+                      <div className="text-sm text-muted-foreground">{d.contact_number || '-'}</div>
+                    </TableCell>
+                    <TableCell>
+                      <div>{d.license_number}</div>
+                      <div className="text-sm text-muted-foreground">Category: {d.license_category}</div>
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex items-center gap-2">
+                        <span className={`text-sm ${expired ? 'text-destructive font-semibold' : ''}`}>
+                          {d.license_expiry}
+                        </span>
+                        {expired && <AlertTriangle className="w-4 h-4 text-destructive" />}
+                      </div>
+                      {expired && <span className="text-xs text-destructive">Expired</span>}
+                    </TableCell>
+                    <TableCell>
+                      <span className={`font-medium ${d.safety_score < 70 ? 'text-destructive' : d.safety_score < 90 ? 'text-orange-500' : 'text-green-500'}`}>
+                        {d.safety_score}
+                      </span>
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant={getStatusVariant(d.status) as any}>
+                        {d.status.replace('_', ' ')}
+                      </Badge>
+                    </TableCell>
+                  </TableRow>
+                )
+              })
+            )}
+          </TableBody>
+        </Table>
+      </div>
     </div>
   )
 }
