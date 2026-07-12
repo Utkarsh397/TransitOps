@@ -34,20 +34,14 @@ export default function Login() {
         const { data, error: signUpError } = await supabase.auth.signUp({
           email,
           password,
-        })
-        if (signUpError) throw signUpError
-
-        if (data.user) {
-          const { error: profileError } = await supabase
-            .from('profiles')
-            .insert({
-              id: data.user.id,
+          options: {
+            data: {
               full_name: fullName,
               role: role,
-            })
-          
-          if (profileError) throw profileError
-        }
+            }
+          }
+        })
+        if (signUpError) throw signUpError
         
         navigate('/dashboard')
       }
