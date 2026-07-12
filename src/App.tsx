@@ -1,5 +1,6 @@
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom'
 import { AuthProvider } from './contexts/AuthContext'
+import { ThemeProvider } from './contexts/ThemeContext'
 import ProtectedRoute from './components/ProtectedRoute'
 import Layout from './components/Layout'
 
@@ -14,31 +15,30 @@ import Reports from './pages/Reports'
 
 function App() {
   return (
-    <AuthProvider>
-      <Router>
-        <Routes>
-          {/* Public Routes */}
-          <Route path="/login" element={<Login />} />
-          
-          {/* Protected Routes with Layout */}
-          <Route element={<ProtectedRoute />}>
-            <Route element={<Layout />}>
-              <Route path="/" element={<Navigate to="/dashboard" replace />} />
-              <Route path="/dashboard" element={<Dashboard />} />
-              <Route path="/vehicles" element={<Vehicles />} />
-              <Route path="/drivers" element={<Drivers />} />
-              <Route path="/trips" element={<Trips />} />
-              <Route path="/maintenance" element={<Maintenance />} />
-              <Route path="/fuel-expenses" element={<FuelExpenses />} />
-              <Route path="/reports" element={<Reports />} />
+    <ThemeProvider>
+      <AuthProvider>
+        <Router>
+          <Routes>
+            <Route path="/login" element={<Login />} />
+            
+            <Route element={<ProtectedRoute />}>
+              <Route element={<Layout />}>
+                <Route path="/" element={<Navigate to="/dashboard" replace />} />
+                <Route path="/dashboard" element={<Dashboard />} />
+                <Route path="/vehicles" element={<Vehicles />} />
+                <Route path="/drivers" element={<Drivers />} />
+                <Route path="/trips" element={<Trips />} />
+                <Route path="/maintenance" element={<Maintenance />} />
+                <Route path="/fuel-expenses" element={<FuelExpenses />} />
+                <Route path="/reports" element={<Reports />} />
+              </Route>
             </Route>
-          </Route>
-          
-          {/* Fallback route */}
-          <Route path="*" element={<Navigate to="/dashboard" replace />} />
-        </Routes>
-      </Router>
-    </AuthProvider>
+            
+            <Route path="*" element={<Navigate to="/dashboard" replace />} />
+          </Routes>
+        </Router>
+      </AuthProvider>
+    </ThemeProvider>
   )
 }
 

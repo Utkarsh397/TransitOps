@@ -233,3 +233,18 @@ begin
   where id = v_vehicle_id and status != 'RETIRED';
 end;
 $$ language plpgsql security definer;
+
+-- ====================================================================================
+-- SECTION 11: KPI VIEW
+-- ====================================================================================
+create view v_fleet_kpis as
+select
+  count(*) filter (where status != 'RETIRED') as active_vehicles,
+  count(*) filter (where status = 'AVAILABLE') as available_vehicles,
+  count(*) filter (where status = 'IN_SHOP') as vehicles_in_maintenance,
+  (select count(*) from trips where status = 'DISPATCHED') as active_trips,
+  (select count(*) from trips where status = 'DRAFT') as pending_trips,
+  (select count(*) from drivers where status = 'ON_TRIP') as drivers_on_duty,
+  round(100.0 * count(*) filter (where status = 'ON_TRIP') / nullif(count(*) filter (where status != 'RETIRED'),0), 1) as fleet_utilization_pct
+from vehicles;
+

@@ -5,7 +5,8 @@ import { z } from 'zod'
 import { supabase } from '../lib/supabaseClient'
 import { useAuth } from '../contexts/AuthContext'
 import ImageUpload from '../components/ImageUpload'
-import { Plus, X, FileText, Droplets } from 'lucide-react'
+import { X, FileText, Droplets, ArrowUp, ArrowDown } from 'lucide-react'
+import { useSortableData } from '../hooks/useSortableData'
 
 const fuelSchema = z.object({
   vehicle_id: z.string().min(1, 'Vehicle is required'),
@@ -37,11 +38,13 @@ export default function FuelExpenses() {
   const [maintenanceLogs, setMaintenanceLogs] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
 
-  // Modals
   const [showFuelModal, setShowFuelModal] = useState(false)
   const [showExpenseModal, setShowExpenseModal] = useState(false)
   
   const [uploadData, setUploadData] = useState<{url: string, publicId: string} | null>(null)
+
+  const { items: sortedFuelLogs, requestSort: requestFuelSort, sortConfig: fuelSortConfig } = useSortableData(fuelLogs)
+  const { items: sortedExpenses, requestSort: requestExpenseSort, sortConfig: expenseSortConfig } = useSortableData(expenses)
 
   const fuelForm = useForm<FuelFormValues>({
     resolver: zodResolver(fuelSchema),
@@ -60,9 +63,7 @@ export default function FuelExpenses() {
   const fetchData = async () => {
     try {
       setLoading(true)
-      const [
-        vehRes, trpRes, fuelRes, expRes, maintRes
-      ] = await Promise.all([
+      const [vehRes, trpRes, fuelRes, expRes, maintRes] = await Promise.all([
         supabase.from('vehicles').select('id, registration_number, name_model'),
         supabase.from('trips').select('id, source, destination, status'),
         supabase.from('fuel_logs').select('*, vehicles(registration_number), trips(source, destination)').order('log_date', { ascending: false }),
@@ -86,24 +87,12 @@ export default function FuelExpenses() {
     }
   }
 
-  // Calculate per-vehicle running total
   const vehicleTotals = useMemo(() => {
     const totals: Record<string, { reg: string, total: number }> = {}
-    
-    vehicles.forEach(v => {
-      totals[v.id] = { reg: v.registration_number, total: 0 }
-    })
-
-    fuelLogs.forEach(f => {
-      if (totals[f.vehicle_id]) totals[f.vehicle_id].total += Number(f.cost)
-    })
-    expenses.forEach(e => {
-      if (totals[e.vehicle_id]) totals[e.vehicle_id].total += Number(e.amount)
-    })
-    maintenanceLogs.forEach(m => {
-      if (totals[m.vehicle_id]) totals[m.vehicle_id].total += Number(m.cost)
-    })
-
+    vehicles.forEach(v => { totals[v.id] = { reg: v.registration_number, total: 0 } })
+    fuelLogs.forEach(f => { if (totals[f.vehicle_id]) totals[f.vehicle_id].total += Number(f.cost) })
+    expenses.forEach(e => { if (totals[e.vehicle_id]) totals[e.vehicle_id].total += Number(e.amount) })
+    maintenanceLogs.forEach(m => { if (totals[m.vehicle_id]) totals[m.vehicle_id].total += Number(m.cost) })
     return Object.values(totals).sort((a, b) => b.total - a.total)
   }, [vehicles, fuelLogs, expenses, maintenanceLogs])
 
@@ -116,7 +105,6 @@ export default function FuelExpenses() {
         receipt_public_id: uploadData?.publicId || null
       })
       if (error) throw error
-      
       setShowFuelModal(false)
       fuelForm.reset()
       setUploadData(null)
@@ -134,7 +122,6 @@ export default function FuelExpenses() {
         receipt_public_id: uploadData?.publicId || null
       })
       if (error) throw error
-      
       setShowExpenseModal(false)
       expenseForm.reset()
       setUploadData(null)
@@ -144,19 +131,39 @@ export default function FuelExpenses() {
     }
   }
 
+  const renderSortableHeader = (
+    label: string, 
+    key: string, 
+    requestSortFunc: (key: string) => void, 
+    sortConfigObj: { key: string, direction: 'asc'|'desc' } | null
+  ) => (
+    <th 
+      scope="col" 
+      className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+      onClick={() => requestSortFunc(key)}
+    >
+      <div className="flex items-center gap-1">
+        {label}
+        {sortConfigObj?.key === key && (
+          sortConfigObj.direction === 'asc' ? <ArrowUp className="w-3 h-3" /> : <ArrowDown className="w-3 h-3" />
+        )}
+      </div>
+    </th>
+  )
+
   return (
     <div className="p-6 max-w-7xl mx-auto space-y-6">
       
       <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Fuel & Expenses</h1>
-          <p className="text-sm text-gray-500 mt-1">Track fleet operating costs</p>
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Fuel & Expenses</h1>
+          <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Track fleet operating costs</p>
         </div>
         {role === 'fleet_manager' && (
           <div className="flex gap-2">
             <button
               onClick={() => setShowExpenseModal(true)}
-              className="flex items-center gap-2 bg-white text-gray-700 border border-gray-300 px-4 py-2 rounded-md hover:bg-gray-50 transition-colors shadow-sm text-sm font-medium"
+              className="flex items-center gap-2 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 border border-gray-300 dark:border-gray-600 px-4 py-2 rounded-md hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors shadow-sm text-sm font-medium"
             >
               <FileText className="w-4 h-4" /> Add Expense
             </button>
@@ -170,40 +177,38 @@ export default function FuelExpenses() {
         )}
       </div>
 
-      {/* Summary Widget */}
-      <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-200">
-        <h3 className="text-sm font-semibold text-gray-700 mb-3 uppercase tracking-wide">Vehicle Lifetime Cost (Fuel + Expenses + Maint.)</h3>
+      <div className="bg-white dark:bg-gray-800 p-4 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 transition-colors">
+        <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3 uppercase tracking-wide">Vehicle Lifetime Cost (Fuel + Expenses + Maint.)</h3>
         <div className="flex overflow-x-auto pb-2 gap-4">
           {vehicleTotals.map(vt => (
-            <div key={vt.reg} className="flex-shrink-0 bg-gray-50 border border-gray-200 rounded-lg p-3 min-w-[140px]">
-              <div className="text-xs text-gray-500 font-medium">{vt.reg}</div>
-              <div className="text-lg font-bold text-gray-900">${vt.total.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
+            <div key={vt.reg} className="flex-shrink-0 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg p-3 min-w-[140px] transition-colors">
+              <div className="text-xs text-gray-500 dark:text-gray-400 font-medium">{vt.reg}</div>
+              <div className="text-lg font-bold text-gray-900 dark:text-white">${vt.total.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
             </div>
           ))}
-          {vehicleTotals.length === 0 && <div className="text-sm text-gray-500">No data available</div>}
+          {vehicleTotals.length === 0 && <div className="text-sm text-gray-500 dark:text-gray-400">No data available</div>}
         </div>
       </div>
 
-      {/* Tabs */}
-      <div className="bg-white rounded-lg shadow border border-gray-200 overflow-hidden">
-        <div className="border-b border-gray-200">
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow border border-gray-200 dark:border-gray-700 overflow-hidden transition-colors">
+        <div className="border-b border-gray-200 dark:border-gray-700">
           <nav className="flex -mb-px">
             <button
               onClick={() => setActiveTab('fuel')}
-              className={`w-1/2 py-4 px-1 text-center border-b-2 font-medium text-sm ${
+              className={`w-1/2 py-4 px-1 text-center border-b-2 font-medium text-sm transition-colors ${
                 activeTab === 'fuel'
-                  ? 'border-indigo-500 text-indigo-600'
-                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                  ? 'border-indigo-500 text-indigo-600 dark:text-indigo-400'
+                  : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:border-gray-300 dark:hover:border-gray-600'
               }`}
             >
               Fuel Logs
             </button>
             <button
               onClick={() => setActiveTab('expenses')}
-              className={`w-1/2 py-4 px-1 text-center border-b-2 font-medium text-sm ${
+              className={`w-1/2 py-4 px-1 text-center border-b-2 font-medium text-sm transition-colors ${
                 activeTab === 'expenses'
-                  ? 'border-indigo-500 text-indigo-600'
-                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                  ? 'border-indigo-500 text-indigo-600 dark:text-indigo-400'
+                  : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:border-gray-300 dark:hover:border-gray-600'
               }`}
             >
               Other Expenses
@@ -213,35 +218,35 @@ export default function FuelExpenses() {
         
         <div className="overflow-x-auto">
           {activeTab === 'fuel' ? (
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
+            <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+              <thead className="bg-gray-50 dark:bg-gray-900/50">
                 <tr>
-                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
-                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Vehicle</th>
-                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Amount</th>
-                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Cost</th>
-                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Linked Trip</th>
-                  <th scope="col" className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Receipt</th>
+                  {renderSortableHeader('Date', 'log_date', requestFuelSort, fuelSortConfig)}
+                  {renderSortableHeader('Vehicle', 'vehicle_id', requestFuelSort, fuelSortConfig)}
+                  {renderSortableHeader('Amount', 'liters', requestFuelSort, fuelSortConfig)}
+                  {renderSortableHeader('Cost', 'cost', requestFuelSort, fuelSortConfig)}
+                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Linked Trip</th>
+                  <th scope="col" className="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Receipt</th>
                 </tr>
               </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
+              <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
                 {loading ? (
-                  <tr><td colSpan={6} className="px-6 py-8 text-center text-gray-500">Loading...</td></tr>
-                ) : fuelLogs.length === 0 ? (
-                  <tr><td colSpan={6} className="px-6 py-8 text-center text-gray-500">No fuel logs found.</td></tr>
+                  <tr><td colSpan={6} className="px-6 py-8 text-center text-gray-500 dark:text-gray-400">Loading...</td></tr>
+                ) : sortedFuelLogs.length === 0 ? (
+                  <tr><td colSpan={6} className="px-6 py-8 text-center text-gray-500 dark:text-gray-400">No fuel logs found.</td></tr>
                 ) : (
-                  fuelLogs.map((log) => (
-                    <tr key={log.id} className="hover:bg-gray-50">
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{log.log_date}</td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{log.vehicles?.registration_number}</td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{log.liters} L</td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">${Number(log.cost).toLocaleString(undefined, { minimumFractionDigits: 2 })}</td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                  sortedFuelLogs.map((log) => (
+                    <tr key={log.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">{log.log_date}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-white">{log.vehicles?.registration_number}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-300">{log.liters} L</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-300">${Number(log.cost).toLocaleString(undefined, { minimumFractionDigits: 2 })}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
                         {log.trips ? `${log.trips.source} -> ${log.trips.destination}` : '-'}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-right text-sm">
                         {log.receipt_url ? (
-                          <a href={log.receipt_url} target="_blank" rel="noopener noreferrer" className="text-indigo-600 hover:underline">View</a>
+                          <a href={log.receipt_url} target="_blank" rel="noopener noreferrer" className="text-indigo-600 dark:text-indigo-400 hover:underline">View</a>
                         ) : '-'}
                       </td>
                     </tr>
@@ -250,31 +255,31 @@ export default function FuelExpenses() {
               </tbody>
             </table>
           ) : (
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
+            <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+              <thead className="bg-gray-50 dark:bg-gray-900/50">
                 <tr>
-                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
-                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Vehicle</th>
-                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Category</th>
-                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Amount</th>
-                  <th scope="col" className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Receipt</th>
+                  {renderSortableHeader('Date', 'expense_date', requestExpenseSort, expenseSortConfig)}
+                  {renderSortableHeader('Vehicle', 'vehicle_id', requestExpenseSort, expenseSortConfig)}
+                  {renderSortableHeader('Category', 'category', requestExpenseSort, expenseSortConfig)}
+                  {renderSortableHeader('Amount', 'amount', requestExpenseSort, expenseSortConfig)}
+                  <th scope="col" className="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Receipt</th>
                 </tr>
               </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
+              <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
                 {loading ? (
-                  <tr><td colSpan={5} className="px-6 py-8 text-center text-gray-500">Loading...</td></tr>
-                ) : expenses.length === 0 ? (
-                  <tr><td colSpan={5} className="px-6 py-8 text-center text-gray-500">No expenses found.</td></tr>
+                  <tr><td colSpan={5} className="px-6 py-8 text-center text-gray-500 dark:text-gray-400">Loading...</td></tr>
+                ) : sortedExpenses.length === 0 ? (
+                  <tr><td colSpan={5} className="px-6 py-8 text-center text-gray-500 dark:text-gray-400">No expenses found.</td></tr>
                 ) : (
-                  expenses.map((exp) => (
-                    <tr key={exp.id} className="hover:bg-gray-50">
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{exp.expense_date}</td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{exp.vehicles?.registration_number}</td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 capitalize">{exp.category}</td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">${Number(exp.amount).toLocaleString(undefined, { minimumFractionDigits: 2 })}</td>
+                  sortedExpenses.map((exp) => (
+                    <tr key={exp.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">{exp.expense_date}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-white">{exp.vehicles?.registration_number}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400 capitalize">{exp.category}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-300">${Number(exp.amount).toLocaleString(undefined, { minimumFractionDigits: 2 })}</td>
                       <td className="px-6 py-4 whitespace-nowrap text-right text-sm">
                         {exp.receipt_url ? (
-                          <a href={exp.receipt_url} target="_blank" rel="noopener noreferrer" className="text-indigo-600 hover:underline">View</a>
+                          <a href={exp.receipt_url} target="_blank" rel="noopener noreferrer" className="text-indigo-600 dark:text-indigo-400 hover:underline">View</a>
                         ) : '-'}
                       </td>
                     </tr>
@@ -286,16 +291,15 @@ export default function FuelExpenses() {
         </div>
       </div>
 
-      {/* Add Fuel Modal */}
       {showFuelModal && role === 'fleet_manager' && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 overflow-y-auto">
-          <div className="bg-white rounded-xl shadow-xl w-full max-w-xl mt-10 mb-10 overflow-hidden flex flex-col">
-            <div className="flex justify-between items-center p-6 border-b border-gray-100">
-              <h2 className="text-xl font-bold text-gray-900 flex items-center gap-2">
-                <Droplets className="w-5 h-5 text-indigo-600" />
+          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-xl w-full max-w-xl mt-10 mb-10 overflow-hidden flex flex-col transition-colors">
+            <div className="flex justify-between items-center p-6 border-b border-gray-100 dark:border-gray-700">
+              <h2 className="text-xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
+                <Droplets className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
                 Add Fuel Log
               </h2>
-              <button onClick={() => setShowFuelModal(false)} className="text-gray-400 hover:text-gray-600">
+              <button onClick={() => setShowFuelModal(false)} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">
                 <X className="w-5 h-5" />
               </button>
             </div>
@@ -304,18 +308,18 @@ export default function FuelExpenses() {
               <form id="fuel-form" onSubmit={fuelForm.handleSubmit(onSubmitFuel)} className="space-y-6">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Vehicle</label>
-                    <select {...fuelForm.register('vehicle_id')} className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500">
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Vehicle</label>
+                    <select {...fuelForm.register('vehicle_id')} className="w-full px-3 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md focus:ring-indigo-500 focus:border-indigo-500 dark:text-white">
                       <option value="">Select vehicle</option>
                       {vehicles.map(v => (
                         <option key={v.id} value={v.id}>{v.registration_number}</option>
                       ))}
                     </select>
-                    {fuelForm.formState.errors.vehicle_id && <p className="mt-1 text-sm text-red-600">{fuelForm.formState.errors.vehicle_id.message}</p>}
+                    {fuelForm.formState.errors.vehicle_id && <p className="mt-1 text-sm text-red-600 dark:text-red-400">{fuelForm.formState.errors.vehicle_id.message}</p>}
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Linked Trip (Optional)</label>
-                    <select {...fuelForm.register('trip_id')} className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500">
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Linked Trip (Optional)</label>
+                    <select {...fuelForm.register('trip_id')} className="w-full px-3 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md focus:ring-indigo-500 focus:border-indigo-500 dark:text-white">
                       <option value="">No linked trip</option>
                       {trips.map(t => (
                         <option key={t.id} value={t.id}>{t.source} - {t.destination}</option>
@@ -323,23 +327,23 @@ export default function FuelExpenses() {
                     </select>
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Liters (L)</label>
-                    <input type="number" step="0.1" {...fuelForm.register('liters', { valueAsNumber: true })} className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500" />
-                    {fuelForm.formState.errors.liters && <p className="mt-1 text-sm text-red-600">{fuelForm.formState.errors.liters.message}</p>}
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Liters (L)</label>
+                    <input type="number" step="0.1" {...fuelForm.register('liters', { valueAsNumber: true })} className="w-full px-3 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md focus:ring-indigo-500 focus:border-indigo-500 dark:text-white" />
+                    {fuelForm.formState.errors.liters && <p className="mt-1 text-sm text-red-600 dark:text-red-400">{fuelForm.formState.errors.liters.message}</p>}
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Total Cost ($)</label>
-                    <input type="number" step="0.01" {...fuelForm.register('cost', { valueAsNumber: true })} className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500" />
-                    {fuelForm.formState.errors.cost && <p className="mt-1 text-sm text-red-600">{fuelForm.formState.errors.cost.message}</p>}
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Total Cost ($)</label>
+                    <input type="number" step="0.01" {...fuelForm.register('cost', { valueAsNumber: true })} className="w-full px-3 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md focus:ring-indigo-500 focus:border-indigo-500 dark:text-white" />
+                    {fuelForm.formState.errors.cost && <p className="mt-1 text-sm text-red-600 dark:text-red-400">{fuelForm.formState.errors.cost.message}</p>}
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Date</label>
-                    <input type="date" {...fuelForm.register('log_date')} className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500" />
-                    {fuelForm.formState.errors.log_date && <p className="mt-1 text-sm text-red-600">{fuelForm.formState.errors.log_date.message}</p>}
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Date</label>
+                    <input type="date" {...fuelForm.register('log_date')} className="w-full px-3 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md focus:ring-indigo-500 focus:border-indigo-500 dark:text-white" />
+                    {fuelForm.formState.errors.log_date && <p className="mt-1 text-sm text-red-600 dark:text-red-400">{fuelForm.formState.errors.log_date.message}</p>}
                   </div>
                 </div>
 
-                <div className="pt-2 border-t border-gray-100">
+                <div className="pt-2 border-t border-gray-100 dark:border-gray-700">
                   <ImageUpload 
                     folder="transitops/receipts" 
                     label="Attach Receipt Scan (Optional)" 
@@ -349,11 +353,11 @@ export default function FuelExpenses() {
               </form>
             </div>
             
-            <div className="p-6 border-t border-gray-100 bg-gray-50 flex justify-end gap-3">
+            <div className="p-6 border-t border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 flex justify-end gap-3 transition-colors">
               <button 
                 type="button" 
                 onClick={() => setShowFuelModal(false)}
-                className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50"
+                className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-md hover:bg-gray-50 dark:hover:bg-gray-700"
               >
                 Cancel
               </button>
@@ -370,16 +374,15 @@ export default function FuelExpenses() {
         </div>
       )}
 
-      {/* Add Expense Modal */}
       {showExpenseModal && role === 'fleet_manager' && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 overflow-y-auto">
-          <div className="bg-white rounded-xl shadow-xl w-full max-w-xl mt-10 mb-10 overflow-hidden flex flex-col">
-            <div className="flex justify-between items-center p-6 border-b border-gray-100">
-              <h2 className="text-xl font-bold text-gray-900 flex items-center gap-2">
-                <FileText className="w-5 h-5 text-indigo-600" />
+          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-xl w-full max-w-xl mt-10 mb-10 overflow-hidden flex flex-col transition-colors">
+            <div className="flex justify-between items-center p-6 border-b border-gray-100 dark:border-gray-700">
+              <h2 className="text-xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
+                <FileText className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
                 Add Expense
               </h2>
-              <button onClick={() => setShowExpenseModal(false)} className="text-gray-400 hover:text-gray-600">
+              <button onClick={() => setShowExpenseModal(false)} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">
                 <X className="w-5 h-5" />
               </button>
             </div>
@@ -388,38 +391,38 @@ export default function FuelExpenses() {
               <form id="expense-form" onSubmit={expenseForm.handleSubmit(onSubmitExpense)} className="space-y-6">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Vehicle</label>
-                    <select {...expenseForm.register('vehicle_id')} className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500">
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Vehicle</label>
+                    <select {...expenseForm.register('vehicle_id')} className="w-full px-3 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md focus:ring-indigo-500 focus:border-indigo-500 dark:text-white">
                       <option value="">Select vehicle</option>
                       {vehicles.map(v => (
                         <option key={v.id} value={v.id}>{v.registration_number}</option>
                       ))}
                     </select>
-                    {expenseForm.formState.errors.vehicle_id && <p className="mt-1 text-sm text-red-600">{expenseForm.formState.errors.vehicle_id.message}</p>}
+                    {expenseForm.formState.errors.vehicle_id && <p className="mt-1 text-sm text-red-600 dark:text-red-400">{expenseForm.formState.errors.vehicle_id.message}</p>}
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Category</label>
-                    <select {...expenseForm.register('category')} className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500">
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Category</label>
+                    <select {...expenseForm.register('category')} className="w-full px-3 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md focus:ring-indigo-500 focus:border-indigo-500 dark:text-white">
                       <option value="">Select category</option>
                       <option value="toll">Toll</option>
                       <option value="maintenance">Maintenance (Ad-Hoc)</option>
                       <option value="other">Other</option>
                     </select>
-                    {expenseForm.formState.errors.category && <p className="mt-1 text-sm text-red-600">{expenseForm.formState.errors.category.message}</p>}
+                    {expenseForm.formState.errors.category && <p className="mt-1 text-sm text-red-600 dark:text-red-400">{expenseForm.formState.errors.category.message}</p>}
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Amount ($)</label>
-                    <input type="number" step="0.01" {...expenseForm.register('amount', { valueAsNumber: true })} className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500" />
-                    {expenseForm.formState.errors.amount && <p className="mt-1 text-sm text-red-600">{expenseForm.formState.errors.amount.message}</p>}
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Amount ($)</label>
+                    <input type="number" step="0.01" {...expenseForm.register('amount', { valueAsNumber: true })} className="w-full px-3 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md focus:ring-indigo-500 focus:border-indigo-500 dark:text-white" />
+                    {expenseForm.formState.errors.amount && <p className="mt-1 text-sm text-red-600 dark:text-red-400">{expenseForm.formState.errors.amount.message}</p>}
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Date</label>
-                    <input type="date" {...expenseForm.register('expense_date')} className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500" />
-                    {expenseForm.formState.errors.expense_date && <p className="mt-1 text-sm text-red-600">{expenseForm.formState.errors.expense_date.message}</p>}
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Date</label>
+                    <input type="date" {...expenseForm.register('expense_date')} className="w-full px-3 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md focus:ring-indigo-500 focus:border-indigo-500 dark:text-white" />
+                    {expenseForm.formState.errors.expense_date && <p className="mt-1 text-sm text-red-600 dark:text-red-400">{expenseForm.formState.errors.expense_date.message}</p>}
                   </div>
                 </div>
 
-                <div className="pt-2 border-t border-gray-100">
+                <div className="pt-2 border-t border-gray-100 dark:border-gray-700">
                   <ImageUpload 
                     folder="transitops/receipts" 
                     label="Attach Receipt Scan (Optional)" 
@@ -429,11 +432,11 @@ export default function FuelExpenses() {
               </form>
             </div>
             
-            <div className="p-6 border-t border-gray-100 bg-gray-50 flex justify-end gap-3">
+            <div className="p-6 border-t border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 flex justify-end gap-3 transition-colors">
               <button 
                 type="button" 
                 onClick={() => setShowExpenseModal(false)}
-                className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50"
+                className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-md hover:bg-gray-50 dark:hover:bg-gray-700"
               >
                 Cancel
               </button>

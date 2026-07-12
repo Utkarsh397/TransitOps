@@ -5,7 +5,8 @@ import { z } from 'zod'
 import { supabase } from '../lib/supabaseClient'
 import { useAuth } from '../contexts/AuthContext'
 import ImageUpload from '../components/ImageUpload'
-import { Plus, X, AlertTriangle } from 'lucide-react'
+import { Plus, X, AlertTriangle, ArrowUp, ArrowDown } from 'lucide-react'
+import { useSortableData } from '../hooks/useSortableData'
 
 const driverSchema = z.object({
   name: z.string().min(1, 'Name is required'),
@@ -22,13 +23,13 @@ export default function Drivers() {
   const [drivers, setDrivers] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   
-  // Filters
   const [filterExpiringSoon, setFilterExpiringSoon] = useState(false)
   
-  // Modal state
   const [showModal, setShowModal] = useState(false)
   const [uploadData, setUploadData] = useState<{url: string, publicId: string} | null>(null)
   const [submitError, setSubmitError] = useState<string | null>(null)
+
+  const { items: sortedDrivers, requestSort, sortConfig } = useSortableData(drivers)
 
   const { register, handleSubmit, reset, formState: { errors, isSubmitting } } = useForm<DriverFormValues>({
     resolver: zodResolver(driverSchema)
@@ -76,9 +77,7 @@ export default function Drivers() {
 
       const { error } = await supabase.from('drivers').insert(insertData)
       if (error) {
-        if (error.code === '23505') {
-          throw new Error('A driver with this license number already exists.')
-        }
+        if (error.code === '23505') throw new Error('A driver with this license number already exists.')
         throw error
       }
       
@@ -93,11 +92,11 @@ export default function Drivers() {
 
   const getStatusColor = (status: string) => {
     switch(status) {
-      case 'AVAILABLE': return 'bg-green-100 text-green-800'
-      case 'ON_TRIP': return 'bg-blue-100 text-blue-800'
-      case 'OFF_DUTY': return 'bg-gray-100 text-gray-800'
-      case 'SUSPENDED': return 'bg-red-100 text-red-800'
-      default: return 'bg-gray-100 text-gray-800'
+      case 'AVAILABLE': return 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400'
+      case 'ON_TRIP': return 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400'
+      case 'OFF_DUTY': return 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300'
+      case 'SUSPENDED': return 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400'
+      default: return 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300'
     }
   }
 
@@ -105,12 +104,29 @@ export default function Drivers() {
     return new Date(dateString) < new Date(new Date().setHours(0,0,0,0))
   }
 
+  const renderSortableHeader = (label: string, key: string) => {
+    return (
+      <th 
+        scope="col" 
+        className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+        onClick={() => requestSort(key)}
+      >
+        <div className="flex items-center gap-1">
+          {label}
+          {sortConfig?.key === key && (
+            sortConfig.direction === 'asc' ? <ArrowUp className="w-3 h-3" /> : <ArrowDown className="w-3 h-3" />
+          )}
+        </div>
+      </th>
+    )
+  }
+
   return (
     <div className="p-6 max-w-7xl mx-auto">
       <div className="flex justify-between items-center mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Drivers</h1>
-          <p className="text-sm text-gray-500 mt-1">Manage fleet personnel and licenses</p>
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Drivers</h1>
+          <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Manage fleet personnel and licenses</p>
         </div>
         {role === 'safety_officer' && (
           <button
@@ -123,61 +139,59 @@ export default function Drivers() {
         )}
       </div>
 
-      {/* Filters */}
-      <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-200 mb-6 flex gap-4 items-center">
+      <div className="bg-white dark:bg-gray-800 p-4 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 mb-6 flex gap-4 items-center transition-colors">
         <label className="flex items-center gap-2 cursor-pointer">
           <input 
             type="checkbox" 
             checked={filterExpiringSoon}
             onChange={(e) => setFilterExpiringSoon(e.target.checked)}
-            className="w-4 h-4 text-indigo-600 rounded border-gray-300 focus:ring-indigo-500"
+            className="w-4 h-4 text-indigo-600 rounded border-gray-300 dark:border-gray-600 focus:ring-indigo-500 dark:bg-gray-700"
           />
-          <span className="text-sm font-medium text-gray-700">Expiring Soon (Next 30 Days)</span>
+          <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Expiring Soon (Next 30 Days)</span>
         </label>
       </div>
 
-      {/* Table */}
-      <div className="bg-white rounded-lg shadow border border-gray-200 overflow-hidden">
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow border border-gray-200 dark:border-gray-700 overflow-hidden transition-colors">
         <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50">
+          <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+            <thead className="bg-gray-50 dark:bg-gray-900/50">
               <tr>
-                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Driver Details</th>
-                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">License info</th>
-                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Expiry</th>
-                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Safety Score</th>
-                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                {renderSortableHeader('Driver Details', 'name')}
+                {renderSortableHeader('License Info', 'license_number')}
+                {renderSortableHeader('Expiry', 'license_expiry')}
+                {renderSortableHeader('Safety Score', 'safety_score')}
+                {renderSortableHeader('Status', 'status')}
               </tr>
             </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
+            <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
               {loading ? (
-                <tr><td colSpan={5} className="px-6 py-8 text-center text-gray-500">Loading drivers...</td></tr>
-              ) : drivers.length === 0 ? (
-                <tr><td colSpan={5} className="px-6 py-8 text-center text-gray-500">No drivers found.</td></tr>
+                <tr><td colSpan={5} className="px-6 py-8 text-center text-gray-500 dark:text-gray-400">Loading drivers...</td></tr>
+              ) : sortedDrivers.length === 0 ? (
+                <tr><td colSpan={5} className="px-6 py-8 text-center text-gray-500 dark:text-gray-400">No drivers found.</td></tr>
               ) : (
-                drivers.map((d) => {
+                sortedDrivers.map((d) => {
                   const expired = isExpired(d.license_expiry)
                   return (
-                    <tr key={d.id} className="hover:bg-gray-50">
+                    <tr key={d.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm font-medium text-gray-900">{d.name}</div>
-                        <div className="text-sm text-gray-500">{d.contact_number || '-'}</div>
+                        <div className="text-sm font-medium text-gray-900 dark:text-white">{d.name}</div>
+                        <div className="text-sm text-gray-500 dark:text-gray-400">{d.contact_number || '-'}</div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm text-gray-900">{d.license_number}</div>
-                        <div className="text-sm text-gray-500">Category: {d.license_category}</div>
+                        <div className="text-sm text-gray-900 dark:text-white">{d.license_number}</div>
+                        <div className="text-sm text-gray-500 dark:text-gray-400">Category: {d.license_category}</div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="flex items-center gap-2">
-                          <span className={`text-sm ${expired ? 'text-red-600 font-semibold' : 'text-gray-900'}`}>
+                          <span className={`text-sm ${expired ? 'text-red-600 dark:text-red-400 font-semibold' : 'text-gray-900 dark:text-gray-300'}`}>
                             {d.license_expiry}
                           </span>
                           {expired && <AlertTriangle className="w-4 h-4 text-red-500" />}
                         </div>
-                        {expired && <span className="text-xs text-red-600">Expired</span>}
+                        {expired && <span className="text-xs text-red-600 dark:text-red-400">Expired</span>}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <span className={`text-sm font-medium ${d.safety_score < 70 ? 'text-red-600' : d.safety_score < 90 ? 'text-orange-600' : 'text-green-600'}`}>
+                        <span className={`text-sm font-medium ${d.safety_score < 70 ? 'text-red-600 dark:text-red-400' : d.safety_score < 90 ? 'text-orange-600 dark:text-orange-400' : 'text-green-600 dark:text-green-400'}`}>
                           {d.safety_score}
                         </span>
                       </td>
@@ -195,50 +209,48 @@ export default function Drivers() {
         </div>
       </div>
 
-      {/* Modal */}
       {showModal && role === 'safety_officer' && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 overflow-y-auto">
-          <div className="bg-white rounded-xl shadow-xl w-full max-w-2xl mt-10 mb-10 overflow-hidden flex flex-col max-h-[90vh]">
-            <div className="flex justify-between items-center p-6 border-b border-gray-100">
-              <h2 className="text-xl font-bold text-gray-900">Add New Driver</h2>
-              <button onClick={() => setShowModal(false)} className="text-gray-400 hover:text-gray-600">
+          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-xl w-full max-w-2xl mt-10 mb-10 overflow-hidden flex flex-col max-h-[90vh] transition-colors">
+            <div className="flex justify-between items-center p-6 border-b border-gray-100 dark:border-gray-700">
+              <h2 className="text-xl font-bold text-gray-900 dark:text-white">Add New Driver</h2>
+              <button onClick={() => setShowModal(false)} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">
                 <X className="w-5 h-5" />
               </button>
             </div>
             
             <div className="p-6 overflow-y-auto">
               {submitError && (
-                <div className="mb-4 bg-red-50 text-red-600 p-3 rounded-md border border-red-100 text-sm">
+                <div className="mb-4 bg-red-50 dark:bg-red-900/30 text-red-600 dark:text-red-400 p-3 rounded-md border border-red-100 dark:border-red-800 text-sm">
                   {submitError}
                 </div>
               )}
               
               <form id="driver-form" onSubmit={handleSubmit(onSubmit)} className="space-y-6">
-                
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Full Name</label>
-                    <input {...register('name')} className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500" placeholder="e.g. John Smith" />
-                    {errors.name && <p className="mt-1 text-sm text-red-600">{errors.name.message}</p>}
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Full Name</label>
+                    <input {...register('name')} className="w-full px-3 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md focus:ring-indigo-500 focus:border-indigo-500 dark:text-white" placeholder="e.g. John Smith" />
+                    {errors.name && <p className="mt-1 text-sm text-red-600 dark:text-red-400">{errors.name.message}</p>}
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Contact Number</label>
-                    <input {...register('contact_number')} className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500" placeholder="e.g. +1 555-0123" />
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Contact Number</label>
+                    <input {...register('contact_number')} className="w-full px-3 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md focus:ring-indigo-500 focus:border-indigo-500 dark:text-white" placeholder="e.g. +1 555-0123" />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">License Number</label>
-                    <input {...register('license_number')} className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500" placeholder="e.g. DL-98765432" />
-                    {errors.license_number && <p className="mt-1 text-sm text-red-600">{errors.license_number.message}</p>}
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">License Number</label>
+                    <input {...register('license_number')} className="w-full px-3 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md focus:ring-indigo-500 focus:border-indigo-500 dark:text-white" placeholder="e.g. DL-98765432" />
+                    {errors.license_number && <p className="mt-1 text-sm text-red-600 dark:text-red-400">{errors.license_number.message}</p>}
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">License Category</label>
-                    <input {...register('license_category')} className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500" placeholder="e.g. CDL-A" />
-                    {errors.license_category && <p className="mt-1 text-sm text-red-600">{errors.license_category.message}</p>}
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">License Category</label>
+                    <input {...register('license_category')} className="w-full px-3 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md focus:ring-indigo-500 focus:border-indigo-500 dark:text-white" placeholder="e.g. CDL-A" />
+                    {errors.license_category && <p className="mt-1 text-sm text-red-600 dark:text-red-400">{errors.license_category.message}</p>}
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">License Expiry Date</label>
-                    <input type="date" {...register('license_expiry')} className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500" />
-                    {errors.license_expiry && <p className="mt-1 text-sm text-red-600">{errors.license_expiry.message}</p>}
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">License Expiry Date</label>
+                    <input type="date" {...register('license_expiry')} className="w-full px-3 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md focus:ring-indigo-500 focus:border-indigo-500 dark:text-white" />
+                    {errors.license_expiry && <p className="mt-1 text-sm text-red-600 dark:text-red-400">{errors.license_expiry.message}</p>}
                   </div>
                 </div>
 
@@ -252,11 +264,11 @@ export default function Drivers() {
               </form>
             </div>
             
-            <div className="p-6 border-t border-gray-100 bg-gray-50 flex justify-end gap-3">
+            <div className="p-6 border-t border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 flex justify-end gap-3 transition-colors">
               <button 
                 type="button" 
                 onClick={() => setShowModal(false)}
-                className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50"
+                className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-md hover:bg-gray-50 dark:hover:bg-gray-700"
               >
                 Cancel
               </button>
