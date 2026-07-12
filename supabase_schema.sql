@@ -1,5 +1,5 @@
 -- =====================================================================
--- TransitOps — All-in-One Supabase Schema
+-- TransitOps ï¿½ All-in-One Supabase Schema
 -- Run this entire script once in Supabase SQL Editor (Project > SQL Editor > New query)
 -- Idempotent: safe to re-run (uses IF NOT EXISTS / DROP ... IF EXISTS patterns)
 -- =====================================================================
@@ -127,7 +127,7 @@ create index if not exists idx_fuel_vehicle_id on fuel_logs(vehicle_id);
 create index if not exists idx_expenses_vehicle_id on expenses(vehicle_id);
 
 -- ---------------------------------------------------------------------
--- 3. AUTH — auto-create a profile row on signup
+-- 3. AUTH ï¿½ auto-create a profile row on signup
 -- Frontend sign-up should pass role via auth metadata:
 --   supabase.auth.signUp({ email, password, options: { data: { full_name, role } } })
 -- ---------------------------------------------------------------------
@@ -175,7 +175,7 @@ drop policy if exists "profiles_update_own" on profiles;
 create policy "profiles_update_own" on profiles
   for update using (id = auth.uid());
 
--- vehicles: everyone authenticated reads; only fleet_manager writes (non-status columns — see Section 6)
+-- vehicles: everyone authenticated reads; only fleet_manager writes (non-status columns ï¿½ see Section 6)
 drop policy if exists "vehicles_select_all" on vehicles;
 create policy "vehicles_select_all" on vehicles
   for select using (auth.role() = 'authenticated');
@@ -205,7 +205,7 @@ drop policy if exists "trips_insert_driver_fleet_manager" on trips;
 create policy "trips_insert_driver_fleet_manager" on trips
   for insert with check (current_role_name() in ('driver','fleet_manager'));
 
--- No direct UPDATE/DELETE policy on trips for any role — all status transitions go through
+-- No direct UPDATE/DELETE policy on trips for any role ï¿½ all status transitions go through
 -- the security-definer RPC functions in Section 7, which bypass RLS internally.
 
 -- maintenance_logs: everyone reads; fleet_manager writes (open/close also gated via RPC)
@@ -236,7 +236,7 @@ create policy "expenses_insert_fleet_manager_financial" on expenses
   for insert with check (current_role_name() in ('fleet_manager','financial_analyst'));
 
 -- ---------------------------------------------------------------------
--- 5. GRANTS — baseline (RLS still applies on top of these)
+-- 5. GRANTS ï¿½ baseline (RLS still applies on top of these)
 -- ---------------------------------------------------------------------
 grant select on profiles, vehicles, drivers, trips, maintenance_logs, fuel_logs, expenses to authenticated;
 grant insert, update on profiles to authenticated;
@@ -247,7 +247,7 @@ grant insert, update on maintenance_logs to authenticated;
 grant insert on fuel_logs, expenses to authenticated;
 
 -- ---------------------------------------------------------------------
--- 6. COLUMN-LEVEL LOCKDOWN — status can ONLY change via RPCs (Section 7)
+-- 6. COLUMN-LEVEL LOCKDOWN ï¿½ status can ONLY change via RPCs (Section 7)
 -- Postgres GRANT/REVOKE operates at column level; RLS "with check" cannot
 -- restrict individual columns, so we close this gap here.
 -- security definer RPC functions run as the function owner and bypass this.
@@ -260,7 +260,7 @@ revoke update on drivers from authenticated;
 grant update (name, license_category, license_expiry, contact_number, safety_score, license_doc_url, license_doc_public_id)
   on drivers to authenticated;
 -- Note: safety_officer changing a driver's status to SUSPENDED is a legitimate compliance
--- action outside the trip lifecycle — if you need that, add a dedicated RPC
+-- action outside the trip lifecycle ï¿½ if you need that, add a dedicated RPC
 -- (e.g. suspend_driver(p_driver_id)) rather than reopening direct column access.
 
 revoke update, delete on trips from authenticated;
@@ -271,7 +271,7 @@ grant update (description) on maintenance_logs to authenticated;
 -- status/cost/closed_at on maintenance_logs are only ever mutated by close_maintenance() RPC.
 
 -- ---------------------------------------------------------------------
--- 7. RPC FUNCTIONS — all state-changing business rules, atomic + row-locked
+-- 7. RPC FUNCTIONS ï¿½ all state-changing business rules, atomic + row-locked
 -- ---------------------------------------------------------------------
 
 -- 7.1 Dispatch a trip
@@ -340,7 +340,7 @@ begin
 end;
 $#$ language plpgsql security definer;
 
--- 7.4 Open a maintenance record (locks the vehicle row — fixes race w/ dispatch_trip)
+-- 7.4 Open a maintenance record (locks the vehicle row ï¿½ fixes race w/ dispatch_trip)
 create or replace function open_maintenance(
   p_vehicle_id uuid, p_description text,
   p_receipt_url text default null, p_receipt_public_id text default null
@@ -364,7 +364,7 @@ begin
 end;
 $#$ language plpgsql security definer;
 
--- 7.5 Close a maintenance record (locks the vehicle row — fixes race w/ dispatch_trip)
+-- 7.5 Close a maintenance record (locks the vehicle row ï¿½ fixes race w/ dispatch_trip)
 create or replace function close_maintenance(p_log_id uuid, p_cost numeric)
 returns void as $#$
 declare
@@ -377,6 +377,7 @@ begin
   if p_cost is null or p_cost < 0 then raise exception 'INVALID_COST'; end if;
 
   select * into v_vehicle from vehicles where id = v_log.vehicle_id for update;
+  if not found then raise exception 'VEHICLE_NOT_FOUND'; end if;
 
   update maintenance_logs set status = 'CLOSED', cost = p_cost, closed_at = now() where id = p_log_id;
 
@@ -393,7 +394,7 @@ grant execute on function open_maintenance(uuid, text, text, text) to authentica
 grant execute on function close_maintenance(uuid, numeric) to authenticated;
 
 -- ---------------------------------------------------------------------
--- 8. REPORTING VIEW — dashboard KPIs
+-- 8. REPORTING VIEW ï¿½ dashboard KPIs
 -- ---------------------------------------------------------------------
 create or replace view v_fleet_kpis as
 select
@@ -443,8 +444,8 @@ left join (
 grant select on v_vehicle_operational_cost to authenticated;
 
 -- ---------------------------------------------------------------------
--- 9. STORAGE BUCKETS — NOT NEEDED
+-- 9. STORAGE BUCKETS ï¿½ NOT NEEDED
 -- File/image storage (vehicle photos, license scans, receipts) is handled by
--- Cloudinary, not Supabase Storage — no bucket creation required for the
+-- Cloudinary, not Supabase Storage ï¿½ no bucket creation required for the
 -- documented architecture.
 -- ---------------------------------------------------------------------
