@@ -1,5 +1,6 @@
 import { createContext, useContext, useEffect, useState } from 'react'
 import type { User, Session } from '@supabase/supabase-js'
+import { ErrorBanner } from '../components/ErrorBanner'
 import { supabase } from '../lib/supabaseClient'
 
 interface AuthContextType {
@@ -23,6 +24,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [session, setSession] = useState<Session | null>(null)
   const [role, setRole] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
     // Get initial session
@@ -63,8 +65,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       if (error) throw error
       setRole(data?.role ?? null)
-    } catch (error) {
-      console.error('Error fetching role:', error)
+    } catch (err: any) {
+      console.error('Error fetching role:', err)
+      setError(err.message || 'Something went wrong')
     } finally {
       setLoading(false)
     }
@@ -76,6 +79,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   return (
     <AuthContext.Provider value={{ user, session, role, loading, signOut }}>
+      <ErrorBanner message={error} />
       {children}
     </AuthContext.Provider>
   )

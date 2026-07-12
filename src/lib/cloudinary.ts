@@ -32,18 +32,18 @@ export async function uploadToCloudinary(
   }
 
   const res = await fetch(
-    `https://api.cloudinary.com/v1_1/${cloudName}/image/upload`,
+    `https://api.cloudinary.com/v1_1/${cloudName}/auto/upload`,
     {
       method: "POST",
       body: formData,
     }
   );
 
-  if (!res.ok) {
-    const errorData = await res.json();
-    throw new Error(errorData.error?.message || "Failed to upload image");
+  const json = await res.json();
+  
+  if (!res.ok || json.error) {
+    throw new Error(json.error?.message || "Cloudinary upload failed");
   }
 
-  const json = await res.json();
   return { url: json.secure_url, publicId: json.public_id };
 }

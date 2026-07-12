@@ -3,6 +3,7 @@ import { AuthProvider } from './contexts/AuthContext'
 import { ThemeProvider } from './contexts/ThemeContext'
 import ProtectedRoute from './components/ProtectedRoute'
 import Layout from './components/Layout'
+import { isSupabaseConfigured } from './lib/supabaseClient'
 
 import Login from './pages/Login'
 import Dashboard from './pages/Dashboard'
@@ -14,6 +15,19 @@ import FuelExpenses from './pages/FuelExpenses'
 import Reports from './pages/Reports'
 
 function App() {
+  if (!isSupabaseConfigured) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="max-w-md w-full bg-white p-8 rounded-lg shadow-sm border text-center">
+          <h1 className="text-2xl font-bold text-gray-900 mb-4">Configuration Missing</h1>
+          <p className="text-gray-600 mb-6">
+            Your Supabase environment variables are missing. Please check your <code className="bg-gray-100 px-1 py-0.5 rounded">.env</code> file and ensure <code className="bg-gray-100 px-1 py-0.5 rounded">VITE_SUPABASE_URL</code> and <code className="bg-gray-100 px-1 py-0.5 rounded">VITE_SUPABASE_ANON_KEY</code> are set.
+          </p>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <ThemeProvider>
       <AuthProvider>

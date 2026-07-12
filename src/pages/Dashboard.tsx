@@ -1,7 +1,8 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { supabase } from '../lib/supabaseClient'
 import { Truck, CheckCircle, Wrench, Activity, Clock, Users, PieChart } from 'lucide-react'
 import { Card, CardContent } from '@/components/ui/card'
+import { ErrorBanner } from '../components/ErrorBanner'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Button } from '@/components/ui/button'
@@ -10,10 +11,39 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 export default function Dashboard() {
   const [kpis, setKpis] = useState<any>(null)
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
   
   const [typeFilter, setTypeFilter] = useState('')
   const [statusFilter, setStatusFilter] = useState('')
   const [regionFilter, setRegionFilter] = useState('')
+
+  
+
+  const fetchKpis = useCallback(async () => {
+    try {
+      if (!kpis) setLoading(true)
+      const hasFilters = typeFilter || statusFilter || regionFilter
+
+
+      if (!hasFilters) {
+        // Query the view directly
+        const { data, error } = await supabase.from('v_fleet_kpis').select('*').single()
+        if (error) {
+           console.error("View error (might not exist yet):", error)
+           await computeManualKpis(false)
+        } else {
+           setKpis(data)
+        }
+      } else {
+        await computeManualKpis(true)
+      }
+    } catch (err: any) {
+      console.error('Error fetching KPIs:', err)
+      setError(err.message || 'Something went wrong')
+    } finally {
+      setLoading(false)
+    }
+  }, [typeFilter, statusFilter, regionFilter, kpis])
 
   useEffect(() => {
     fetchKpis()
@@ -33,32 +63,7 @@ export default function Dashboard() {
     return () => {
       supabase.removeChannel(channel)
     }
-  }, [typeFilter, statusFilter, regionFilter])
-
-  const fetchKpis = async () => {
-    try {
-      // Don't set loading to true on background refresh to avoid flashing
-      if (!kpis) setLoading(true)
-      const hasFilters = typeFilter || statusFilter || regionFilter
-
-      if (!hasFilters) {
-        // Query the view directly
-        const { data, error } = await supabase.from('v_fleet_kpis').select('*').single()
-        if (error) {
-           console.error("View error (might not exist yet):", error)
-           await computeManualKpis(false)
-        } else {
-           setKpis(data)
-        }
-      } else {
-        await computeManualKpis(true)
-      }
-    } catch (err) {
-      console.error('Error fetching KPIs:', err)
-    } finally {
-      setLoading(false)
-    }
-  }
+  }, [typeFilter, statusFilter, regionFilter, fetchKpis])
 
   const computeManualKpis = async (applyFilters: boolean) => {
     let vQuery = supabase.from('vehicles').select('id, status, type, region')
@@ -124,9 +129,10 @@ export default function Dashboard() {
       <div className="flex justify-between items-center">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Dashboard</h1>
-          <p className="text-sm text-muted-foreground mt-1">Real-time fleet overview</p>
+          <p className="text-sm text-muted-foreground mt-1">Overview of your fleet's current status</p>
         </div>
       </div>
+      <ErrorBanner message={error} />
 
       {/* Filters */}
       <Card>

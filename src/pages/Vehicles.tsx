@@ -5,7 +5,8 @@ import { z } from 'zod'
 import { supabase } from '../lib/supabaseClient'
 import { useAuth } from '../contexts/AuthContext'
 import ImageUpload from '../components/ImageUpload'
-import { Plus, ArrowUp, ArrowDown } from 'lucide-react'
+import { Plus, ArrowUp, ArrowDown, FileText } from 'lucide-react'
+import { ErrorBanner } from '../components/ErrorBanner'
 import { useSortableData } from '../hooks/useSortableData'
 
 import { Button } from '@/components/ui/button'
@@ -32,6 +33,7 @@ export default function Vehicles() {
   const { role } = useAuth()
   const [vehicles, setVehicles] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
   
   const [filterType, setFilterType] = useState('')
   const [filterStatus, setFilterStatus] = useState('')
@@ -65,8 +67,9 @@ export default function Vehicles() {
       const { data, error } = await query
       if (error) throw error
       setVehicles(data || [])
-    } catch (err) {
+    } catch (err: any) {
       console.error('Error fetching vehicles:', err)
+      setError(err.message || 'Something went wrong')
     } finally {
       setLoading(false)
     }
@@ -134,8 +137,11 @@ export default function Vehicles() {
       <div className="flex justify-between items-center mb-6">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Vehicles</h1>
-          <p className="text-sm text-muted-foreground mt-1">Manage your fleet registry</p>
+          <p className="text-sm text-muted-foreground mt-1">Manage your fleet and assignments</p>
         </div>
+      </div>
+      <ErrorBanner message={error} />
+      <div className="mb-6 flex justify-end">
         {role === 'fleet_manager' && (
           <Dialog open={showModal} onOpenChange={setShowModal}>
             <DialogTrigger render={<Button className="gap-2" />}>
@@ -284,7 +290,14 @@ export default function Vehicles() {
                   <TableRow key={v.id}>
                     <TableCell>
                       {thumb ? (
-                        <img src={thumb} alt={v.name_model} className="h-16 w-20 object-cover rounded shadow-sm border" />
+                        v.photo_url?.toLowerCase().endsWith('.pdf') ? (
+                          <div className="h-16 w-20 bg-muted rounded border flex flex-col items-center justify-center text-muted-foreground text-xs">
+                            <FileText className="w-5 h-5 mb-1" />
+                            PDF
+                          </div>
+                        ) : (
+                          <img src={thumb} alt={v.name_model} className="h-16 w-20 object-cover rounded shadow-sm border" />
+                        )
                       ) : (
                         <div className="h-16 w-20 bg-muted rounded border flex items-center justify-center text-muted-foreground text-xs">
                           No Photo

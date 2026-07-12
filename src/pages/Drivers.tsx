@@ -5,6 +5,7 @@ import { z } from 'zod'
 import { supabase } from '../lib/supabaseClient'
 import { useAuth } from '../contexts/AuthContext'
 import ImageUpload from '../components/ImageUpload'
+import { ErrorBanner } from '../components/ErrorBanner'
 import { Plus, AlertTriangle, ArrowUp, ArrowDown } from 'lucide-react'
 import { useSortableData } from '../hooks/useSortableData'
 
@@ -30,6 +31,7 @@ export default function Drivers() {
   const { role } = useAuth()
   const [drivers, setDrivers] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
   
   const [filterExpiringSoon, setFilterExpiringSoon] = useState(false)
   
@@ -65,8 +67,9 @@ export default function Drivers() {
       const { data, error } = await query
       if (error) throw error
       setDrivers(data || [])
-    } catch (err) {
+    } catch (err: any) {
       console.error('Error fetching drivers:', err)
+      setError(err.message || 'Something went wrong')
     } finally {
       setLoading(false)
     }
@@ -135,6 +138,7 @@ export default function Drivers() {
           <h1 className="text-2xl font-bold tracking-tight">Drivers</h1>
           <p className="text-sm text-muted-foreground mt-1">Manage fleet personnel and licenses</p>
         </div>
+        <ErrorBanner message={error} />
         {role === 'safety_officer' && (
           <Dialog open={showModal} onOpenChange={setShowModal}>
             <DialogTrigger render={<Button className="gap-2" />}>

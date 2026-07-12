@@ -18,6 +18,7 @@ import {
   Sun,
   Search
 } from 'lucide-react'
+import { ErrorBanner } from './ErrorBanner'
 
 export default function Layout() {
   const { user, role, signOut } = useAuth()
@@ -28,6 +29,7 @@ export default function Layout() {
   const [searchQuery, setSearchQuery] = useState('')
   const [searchResults, setSearchResults] = useState<{ type: string, id: string, label: string }[]>([])
   const [isSearching, setIsSearching] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
   // Navigation config based on role
   const navItems = [
@@ -56,11 +58,15 @@ export default function Layout() {
 
   const performSearch = async (query: string) => {
     setIsSearching(true)
+    setError(null)
     try {
-      const [{ data: vData }, { data: dData }] = await Promise.all([
+      const [{ data: vData, error: vErr }, { data: dData, error: dErr }] = await Promise.all([
         supabase.from('vehicles').select('id, registration_number, name_model').ilike('registration_number', `%${query}%`).limit(3),
         supabase.from('drivers').select('id, name, license_number').ilike('name', `%${query}%`).limit(3)
       ])
+
+      if (vErr) throw vErr
+      if (dErr) throw dErr
 
       const results: { type: string, id: string, label: string }[] = []
       if (vData) {
@@ -70,8 +76,9 @@ export default function Layout() {
         dData.forEach(d => results.push({ type: 'driver', id: d.id, label: `${d.name} (${d.license_number})` }))
       }
       setSearchResults(results)
-    } catch (err) {
+    } catch (err: any) {
       console.error("Search error", err)
+      setError(err.message || 'Something went wrong')
     } finally {
       setIsSearching(false)
     }
@@ -186,7 +193,7 @@ export default function Layout() {
             </Button>
           </div>
         </header>
-        
+        <ErrorBanner message={error} />
         {/* Page Content */}
         <main className="flex-1 overflow-y-auto">
           <Outlet />

@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo } from 'react'
 import { supabase } from '../lib/supabaseClient'
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts'
 import { Download, ArrowUp, ArrowDown } from 'lucide-react'
+import { ErrorBanner } from '../components/ErrorBanner'
 // @ts-ignore
 import Papa from 'papaparse'
 import { useSortableData } from '../hooks/useSortableData'
@@ -18,6 +19,7 @@ export default function Reports() {
   const [expenses, setExpenses] = useState<any[]>([])
   const [maintenanceLogs, setMaintenanceLogs] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
   
   const [revenueMap, setRevenueMap] = useState<Record<string, number>>({})
 
@@ -43,8 +45,9 @@ export default function Reports() {
       setFuelLogs(fuelRes.data || [])
       setExpenses(expRes.data || [])
       setMaintenanceLogs(maintRes.data || [])
-    } catch (err) {
+    } catch (err: any) {
       console.error('Error fetching report data:', err)
+      setError(err.message || 'Something went wrong')
     } finally {
       setLoading(false)
     }
@@ -61,11 +64,16 @@ export default function Reports() {
       const totalFuelLiters = vFuel.reduce((sum, f) => sum + (Number(f.liters) || 0), 0)
       const fuelEfficiency = totalFuelLiters > 0 ? Number((totalDistance / totalFuelLiters).toFixed(2)) : 0
 
-      const costFuel = vFuel.reduce((sum, f) => sum + (Number(f.cost) || 0), 0)
-      const costExpenses = vExp.reduce((sum, e) => sum + (Number(e.amount) || 0), 0)
-      const costMaintenance = vMaint.reduce((sum, m) => sum + (Number(m.cost) || 0), 0)
+      const costFuelCents = vFuel.reduce((sum, f) => sum + Math.round(Number(f.cost) * 100), 0)
+      const costExpensesCents = vExp.reduce((sum, e) => sum + Math.round(Number(e.amount) * 100), 0)
+      const costMaintenanceCents = vMaint.reduce((sum, m) => sum + Math.round(Number(m.cost) * 100), 0)
       
-      const totalCost = costFuel + costExpenses + costMaintenance
+      const totalCostCents = costFuelCents + costExpensesCents + costMaintenanceCents
+
+      const costFuel = costFuelCents / 100
+      const costExpenses = costExpensesCents / 100
+      const costMaintenance = costMaintenanceCents / 100
+      const totalCost = totalCostCents / 100
       const acqCost = Number(v.acquisition_cost) || 1 
 
       const revenue = revenueMap[v.id] || 0
@@ -145,6 +153,7 @@ export default function Reports() {
           <p className="text-sm text-muted-foreground mt-1">Deep dive into fleet performance and costs</p>
         </div>
       </div>
+      <ErrorBanner message={error} />
 
       {loading ? (
         <div className="flex justify-center py-12 text-muted-foreground">Loading Analytics...</div>

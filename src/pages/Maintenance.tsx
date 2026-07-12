@@ -6,6 +6,7 @@ import { supabase } from '../lib/supabaseClient'
 import { useAuth } from '../contexts/AuthContext'
 import ImageUpload from '../components/ImageUpload'
 import { Plus, Wrench, CheckCircle, Info, ArrowUp, ArrowDown } from 'lucide-react'
+import { ErrorBanner } from '../components/ErrorBanner'
 import { useSortableData } from '../hooks/useSortableData'
 
 import { Button } from '@/components/ui/button'
@@ -29,6 +30,7 @@ export default function Maintenance() {
   const [logs, setLogs] = useState<any[]>([])
   const [vehicles, setVehicles] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
   
   const [filterStatus, setFilterStatus] = useState('')
   
@@ -71,8 +73,9 @@ export default function Maintenance() {
       const { data, error } = await query
       if (error) throw error
       setLogs(data || [])
-    } catch (err) {
-      console.error('Error fetching maintenance logs:', err)
+    } catch (err: any) {
+      console.error('Error fetching logs:', err)
+      setError(err.message || 'Something went wrong')
     } finally {
       setLoading(false)
     }
@@ -171,12 +174,12 @@ export default function Maintenance() {
         </div>
       )}
 
-      <div className="flex justify-between items-center mb-6">
+      <div className="flex justify-between items-center">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Maintenance</h1>
-          <p className="text-sm text-muted-foreground mt-1">Track vehicle repairs and shop time</p>
+          <p className="text-sm text-muted-foreground mt-1">Track repairs and service logs</p>
         </div>
-        {role === 'fleet_manager' && (
+      {role === 'fleet_manager' && (
           <Dialog open={showOpenModal} onOpenChange={setShowOpenModal}>
             <DialogTrigger render={<Button className="gap-2" />}>
               <Plus className="w-4 h-4" />
@@ -245,7 +248,7 @@ export default function Maintenance() {
           </Dialog>
         )}
       </div>
-
+      <ErrorBanner message={error} />
       <Card className="mb-6">
         <CardContent className="p-4 flex gap-4 items-end">
           <div className="space-y-2">

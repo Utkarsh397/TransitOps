@@ -5,6 +5,7 @@ import { z } from 'zod'
 import { supabase } from '../lib/supabaseClient'
 import { useAuth } from '../contexts/AuthContext'
 import { Plus, Play, CheckCircle, XCircle, ArrowUp, ArrowDown } from 'lucide-react'
+import { ErrorBanner } from '../components/ErrorBanner'
 import { useSortableData } from '../hooks/useSortableData'
 
 import { Button } from '@/components/ui/button'
@@ -31,6 +32,7 @@ export default function Trips() {
   const [availableVehicles, setAvailableVehicles] = useState<any[]>([])
   const [availableDrivers, setAvailableDrivers] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
   
   const [showCreateModal, setShowCreateModal] = useState(false)
   const [showCompleteModal, setShowCompleteModal] = useState<string | null>(null)
@@ -73,8 +75,9 @@ export default function Trips() {
       
       if (error) throw error
       setTrips(data || [])
-    } catch (err) {
+    } catch (err: any) {
       console.error('Error fetching trips:', err)
+      setError(err.message || 'Something went wrong')
     } finally {
       setLoading(false)
     }
@@ -92,8 +95,9 @@ export default function Trips() {
 
       setAvailableVehicles(vehiclesRes.data || [])
       setAvailableDrivers(driversRes.data || [])
-    } catch (err) {
+    } catch (err: any) {
       console.error('Error fetching resources:', err)
+      setError(err.message || 'Something went wrong')
     }
   }
 
@@ -164,7 +168,7 @@ export default function Trips() {
     switch(status) {
       case 'DRAFT': return 'secondary'
       case 'DISPATCHED': return 'default'
-      case 'COMPLETED': return 'default' // maybe customize to green variant
+      case 'COMPLETED': return 'default'
       case 'CANCELLED': return 'destructive'
       default: return 'outline'
     }
@@ -193,6 +197,9 @@ export default function Trips() {
           <h1 className="text-2xl font-bold tracking-tight">Trips</h1>
           <p className="text-sm text-muted-foreground mt-1">Manage trip dispatches and completions</p>
         </div>
+      </div>
+      <ErrorBanner message={error} />
+      <div className="mb-6 flex justify-end">
         {(role === 'fleet_manager' || role === 'driver') && (
           <Dialog open={showCreateModal} onOpenChange={setShowCreateModal}>
             <DialogTrigger render={<Button className="gap-2" />}>

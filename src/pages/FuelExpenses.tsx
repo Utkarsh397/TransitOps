@@ -6,6 +6,7 @@ import { supabase } from '../lib/supabaseClient'
 import { useAuth } from '../contexts/AuthContext'
 import ImageUpload from '../components/ImageUpload'
 import { FileText, Droplets, ArrowUp, ArrowDown } from 'lucide-react'
+import { ErrorBanner } from '../components/ErrorBanner'
 import { useSortableData } from '../hooks/useSortableData'
 
 import { Button } from '@/components/ui/button'
@@ -44,6 +45,7 @@ export default function FuelExpenses() {
   const [expenses, setExpenses] = useState<any[]>([])
   const [maintenanceLogs, setMaintenanceLogs] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
 
   const [showFuelModal, setShowFuelModal] = useState(false)
   const [showExpenseModal, setShowExpenseModal] = useState(false)
@@ -70,6 +72,7 @@ export default function FuelExpenses() {
   const fetchData = async () => {
     try {
       setLoading(true)
+      setError(null)
       const [vehRes, trpRes, fuelRes, expRes, maintRes] = await Promise.all([
         supabase.from('vehicles').select('id, registration_number, name_model'),
         supabase.from('trips').select('id, source, destination, status'),
@@ -79,16 +82,19 @@ export default function FuelExpenses() {
       ])
 
       if (vehRes.error) throw vehRes.error
+      if (trpRes.error) throw trpRes.error
       if (fuelRes.error) throw fuelRes.error
       if (expRes.error) throw expRes.error
+      if (maintRes.error) throw maintRes.error
 
       setVehicles(vehRes.data || [])
       setTrips(trpRes.data || [])
       setFuelLogs(fuelRes.data || [])
       setExpenses(expRes.data || [])
       setMaintenanceLogs(maintRes.data || [])
-    } catch (err) {
+    } catch (err: any) {
       console.error('Error fetching data:', err)
+      setError(err.message || 'Something went wrong')
     } finally {
       setLoading(false)
     }
@@ -163,9 +169,9 @@ export default function FuelExpenses() {
       <div className="flex justify-between items-center">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Fuel & Expenses</h1>
-          <p className="text-sm text-muted-foreground mt-1">Track fleet operating costs</p>
+          <p className="text-sm text-muted-foreground mt-1">Log fuel consumption and other fleet costs</p>
         </div>
-        {role === 'fleet_manager' && (
+      {role === 'fleet_manager' && (
           <div className="flex gap-2">
             <Dialog open={showExpenseModal} onOpenChange={setShowExpenseModal}>
               <DialogTrigger render={<Button variant="outline" className="gap-2" />}>
@@ -315,7 +321,7 @@ export default function FuelExpenses() {
           </div>
         )}
       </div>
-
+      <ErrorBanner message={error} />
       <Card>
         <CardHeader className="pb-3">
           <CardTitle className="text-sm uppercase tracking-wide text-muted-foreground font-semibold">Vehicle Lifetime Cost (Fuel + Expenses + Maint.)</CardTitle>
